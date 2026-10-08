@@ -1,0 +1,17 @@
+.venv/
+.env
+db.sqlite3
+.sudo_as_admin_successful
+
+# Python caches
+__pycache__/
+*.pyc
+
+# uploaded case photos (v1.14 date folders) — only the demo case stays tracked
+storage/files/*
+!storage/files/DN-*/
+storage/tmp/
+
+# generated static output (collectstatic) — rebuilt with `manage.py collectstatic`
+staticfiles/
+statics/admin/

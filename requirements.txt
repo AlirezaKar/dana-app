@@ -1,0 +1,11 @@
+Django>=5.0,<6.0
+Pillow>=10.0
+openpyxl>=3.1
+jalali>=1.2
+pytz>=2024.1
+# v1.18 — optional: the watermark QR code. The app works fine without it.
+qrcode[pil]>=7.4
+# v1.20 — Persian/Arabic letter joining for the watermark text (pure Python;
+# Pillow wheels lack libraqm). Guarded — absent packages degrade gracefully.
+arabic-reshaper>=3.0
+python-bidi>=0.4

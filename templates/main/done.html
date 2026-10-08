@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load static %}
+{% load jalali_tags %}
+{% block title %}پایان — تشکر{% endblock %}
+{% block content %}
+
+<div class="steps">
+  <div class="step done"><span class="step-num">✓</span><span class="step-label">اطلاعات</span></div>
+  <div class="step-line done"></div>
+  <div class="step done"><span class="step-num">✓</span><span class="step-label">آپلود</span></div>
+  <div class="step-line done"></div>
+  <div class="step done"><span class="step-num">۳</span><span class="step-label">پایان</span></div>
+</div>
+
+<div class="card thanks">
+  <span class="thanks-logos">
+    <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/dana-logo.png' %}" alt="بیمه دانا"></a>
+    <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/hef.co.ir.png' %}" alt="هوشمند ارتباط فرادید"></a>
+  </span>
+  <div class="thanks-icon">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3"><path d="M20 6 9 17l-5-5"/></svg>
+  </div>
+  <h2>با تشکر، پرونده با موفقیت ثبت شد!</h2>
+
+  <div class="unique-box">
+    <div class="unique-label">شماره یکتا پرونده</div>
+    <div class="unique-value" id="unique-number">{{ case.unique_number }}</div>
+    <button type="button" class="btn btn-secondary copy-btn" id="copy-unique">کپی</button>
+  </div>
+
+  <div class="ai-note">
+    پرونده شما در حال بررسی با هوش مصنوعی با شماره یکتا <b class="mono">{{ case.unique_number }}</b> می‌باشد.
+  </div>
+
+  {# ---------------- ثبت پرونده ---------------- #}
+  <div class="done-section">
+    <h3 class="done-title">اطلاعات ثبت پرونده</h3>
+    <div class="info-box" style="display:block">
+      <div class="info-row"><span class="info-label">نام و نام خانوادگی</span><span class="info-value">{{ case.effective_name|default:'—' }}</span></div>
+      <div class="info-row"><span class="info-label">شماره پلاک</span><span class="info-value mono" dir="ltr">{{ case.effective_plate|default:'—' }}</span></div>
+      <div class="info-row"><span class="info-label">کد رایانه پرونده</span><span class="info-value mono">{{ case.computer_code|default:'—' }}</span></div>
+      {% if case.any_record %}
+      <div class="info-row"><span class="info-label">شماره پرونده</span><span class="info-value">{{ case.any_record.case_number }}</span></div>
+      {% endif %}
+      <div class="info-row"><span class="info-label">نوع بیمه</span><span class="info-value">{{ case.insurance_label }}</span></div>
+      <div class="info-row"><span class="info-label">نوع کاربری</span><span class="info-value">{{ case.user_type_label }}{% if case.auth_username %} — <span class="mono">{{ case.auth_username }}</span>{% endif %}</span></div>
+      <div class="info-row"><span class="info-label">شناسهٔ یافت‌شده با</span><span class="info-value">{{ matched_by_label|default:'—' }}</span></div>
+      <div class="info-row"><span class="info-label">تاریخ ثبت</span><span class="info-value">{{ case.finished_at|jalali_datetime }}</span></div>
+      <div class="info-row"><span class="info-label">پوشهٔ ذخیره‌سازی</span><span class="info-value mono" dir="ltr">{{ folder_rel }}/</span></div>
+      <div class="info-row"><span class="info-label">تعداد تصاویر</span><span class="info-value">{{ image_total }} تصویر</span></div>
+    </div>
+  </div>
+
+  {# ---------------- اطلاعات کامل پرونده (یک جعبهٔ اسکرول‌شونده) ---------------- #}
+  {% if record_fields %}
+  <div class="done-section">
+    <h3 class="done-title">اطلاعات کامل پرونده (مرجع)</h3>
+    <div class="info-box record-panel" style="display:block">
+      <div class="record-panel-body">
+        {% for row in record_fields %}
+          <div class="info-row"><span class="info-label">{{ row.label }}</span><span class="info-value">{{ row.value }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ---------------- تصاویر بارگذاری‌شده (مقصر + زیان‌دیدگان) ---------------- #}
+  <div class="done-section">
+    <h3 class="done-title">تصاویر بارگذاری‌شده ({{ image_total }})</h3>
+    {% if image_total %}
+      <div class="gallery-group">
+        <h4>تصاویر مقصر</h4>
+        {% for g in atfault_groups %}
+          {% for slot in g.slots %}
+            {% if slot.count %}
+            <div class="gallery-slot">
+              <div class="gallery-slot-title">{{ slot.label }} — {{ slot.count|to_fa }} تصویر</div>
+              <div class="gallery">
+                {% for img in slot.images %}
+                  <a href="{% url 'media_serve' img.pk %}" data-lightbox="{% url 'media_serve' img.pk %}"
+                     title="{{ slot.label }} — {{ img.saved_name|default:img.original_name }} — {{ img.uploaded_at|jalali_datetime }}">
+                    <img src="{% url 'media_serve' img.pk %}" alt="{{ slot.label }}" loading="lazy">
+                    <span class="gallery-time">{{ img.uploaded_at|jalali_datetime }}</span>
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+      </div>
+
+      {% for v in victims %}
+      <div class="gallery-group">
+        <h4>زیان‌دیده — {{ v.obj.label }}</h4>
+        {% for g in v.groups %}
+          {% for slot in g.slots %}
+            {% if slot.count %}
+            <div class="gallery-slot">
+              <div class="gallery-slot-title">{{ slot.label }} — {{ slot.count|to_fa }} تصویر</div>
+              <div class="gallery">
+                {% for img in slot.images %}
+                  <a href="{% url 'media_serve' img.pk %}" data-lightbox="{% url 'media_serve' img.pk %}"
+                     title="{{ slot.label }} — {{ img.saved_name|default:img.original_name }} — {{ img.uploaded_at|jalali_datetime }}">
+                    <img src="{% url 'media_serve' img.pk %}" alt="{{ slot.label }}" loading="lazy">
+                    <span class="gallery-time">{{ img.uploaded_at|jalali_datetime }}</span>
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state"><p>هیچ تصویری آپلود نشده بود</p></div>
+    {% endif %}
+  </div>
+
+  <a href="{% url 'restart' %}" class="btn btn-primary btn-large" style="margin-top:20px">بازگشت به شروع</a>
+  <p class="text-muted" style="text-align:center; font-size:clamp(0.72rem,1.8vw,0.78rem); margin-top:12px">
+    برای شروع دوباره بر روی «بازگشت به شروع» بزنید — فرم از ابتدا باز می‌شود.
+  </p>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var btn = document.getElementById('copy-unique');
+  if (btn) btn.addEventListener('click', function () {
+    var text = document.getElementById('unique-number').textContent.trim();
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+      .then(function () { DANA.toast('شماره کپی شد'); })
+      .catch(function () { DANA.toast('کپی امکان‌پذیر نبود', true); });
+  });
+});
+</script>
+{% endblock %}

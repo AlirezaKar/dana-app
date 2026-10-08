@@ -1,0 +1,17 @@
+{# ---- one زیان‌دیده block: identity + the same three upload groups (v1.14) ---- #}
+{% load jalali_tags %}
+<div class="victim-block" id="victim-{{ victim.pk }}" data-victim-id="{{ victim.pk }}">
+  <div class="section-head victim-head">
+    <h3 class="section-title">زیان‌دیده — {{ victim.label }}</h3>
+    <button type="button" class="btn btn-secondary btn-mini victim-remove-btn"
+            data-victim-remove="{{ victim.pk }}" title="حذف این زیان‌دیده">حذف زیان‌دیده</button>
+  </div>
+  <div class="info-box victim-info">
+    <div class="info-row"><span class="info-label">نام و نام خانوادگی</span><span class="info-value">{{ victim.full_name|default:'—' }}</span></div>
+    <div class="info-row"><span class="info-label">کد ملی</span><span class="info-value mono" dir="ltr">{{ victim.national_code|default:'—' }}</span></div>
+    <div class="info-row"><span class="info-label">شماره پلاک</span><span class="info-value mono" dir="ltr">{{ victim.plate_number }}</span></div>
+    <div class="info-row"><span class="info-label">پوشهٔ ذخیره‌سازی</span><span class="info-value mono" dir="ltr">storage/files/…/{{ victim.plate_number }}/</span></div>
+  </div>
+
+  {% include 'main/_party_groups.html' with groups=groups party_id=victim.pk %}
+</div>

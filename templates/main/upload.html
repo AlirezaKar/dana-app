@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% load static %}
+{% load jalali_tags %}
+{% block title %}مرحله ۲ — آپلود تصاویر{% endblock %}
+{% block content %}
+
+<div class="steps">
+  <div class="step done"><span class="step-num">✓</span><span class="step-label">اطلاعات</span></div>
+  <div class="step-line done"></div>
+  <div class="step active"><span class="step-num">۲</span><span class="step-label">آپلود</span></div>
+  <div class="step-line"></div>
+  <div class="step"><span class="step-num">۳</span><span class="step-label">پایان</span></div>
+</div>
+
+<div class="card" id="upload-page" data-insurance="{{ insurance_type }}">
+  <div class="card-title-row">
+    <h2 class="card-title">بارگذاری تصاویر</h2>
+    <span class="card-logos">
+      <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/dana-logo.png' %}" alt="بیمه دانا" class="card-logo"></a>
+      <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/hef.co.ir.png' %}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
+    </span>
+  </div>
+
+  {% if username %}
+  <div class="badges">
+    <span class="badge">نام کاربری: <b class="mono">{{ username }}</b></span>
+    <span class="badge">نوع بیمه: <b>{{ insurance_label }}</b></span>
+    <a class="badge badge-link badge-storage" href="{% url 'storage_index' %}" target="_blank"
+       rel="noopener" title="مشاهدهٔ پوشهٔ ذخیره‌سازی در صفحهٔ جدید">مشاهدهٔ پوشه‌ها</a>
+    <a class="badge badge-link" href="{% url 'logout' %}" title="خروج از حساب">خروج</a>
+  </div>
+  {% endif %}
+
+  {# ============ کد رایانه پرونده — integrated in the upload page (v1.15) ============ #}
+  <div class="done-section" style="margin-top:0">
+
+    {% if finder_errors %}
+      <div class="messages">{% for e in finder_errors %}<div class="alert alert-error">{{ e }}</div>{% endfor %}</div>
+    {% endif %}
+    {# v1.17 — server-side messages (e.g. finish-time timing errors) render here #}
+    {% if messages %}
+      <div class="messages">
+        {% for m in messages %}<div class="alert alert-error">{{ m }}</div>{% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'case_resolve' %}" novalidate id="step3-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="field-label">کد رایانه پرونده</label>
+        <div class="idk-box active-box" data-box="0">
+          <div class="cb" data-url="/records/search/" data-field="file_code" data-today="1" data-min="0">
+            <input type="text" id="id_file_code" name="file_code" class="cb-input mono" dir="ltr"
+                   value="{{ finder_state.file_code }}" placeholder="برای دیدن فهرست کلیک کنید یا عدد ابتدایی را تایپ کنید" autocomplete="off">
+          </div>
+          <div class="field-hint">فهرست پرونده‌های امروز نمایش داده می‌شود؛ برای پرونده‌های قدیمی، کد را کامل تایپ کنید.</div>
+        </div>
+      </div>
+
+      {# information panel — the single small scrollable box (v1.14) #}
+      <div id="record-panel" class="record-panel {% if not record_panel %}hidden{% endif %}">
+        <div class="record-panel-head" id="record-panel-title">{{ record_panel.title|default:'' }}</div>
+        <div class="record-panel-body" id="record-panel-body">
+          {% for row in record_panel.details %}
+            <div class="info-row"><span class="info-label">{{ row.label }}</span><span class="info-value">{{ row.value }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# بدنه: plate changed + plate component #}
+      {% if insurance_type == 'body' %}
+      <div id="badene-plate-branch">
+        <label class="idk-check" style="margin:12px 0 8px;">
+          <input type="checkbox" name="plate_changed" value="on" {% if finder_state.plate_changed %}checked{% endif %}>
+          پلاک خودرو تغییر کرده است
+        </label>
+        <div id="plate-branch" class="hidden">
+          <div class="form-group">
+            <label class="field-label">شماره پلاک جدید</label>
+            <div class="plate-wrapper" dir="ltr">
+              <div class="plate">
+                <div class="plate-blue">
+                  <div class="plate-flag"><span class="f-green"></span><span class="f-white"></span><span class="f-red"></span></div>
+                  <div class="plate-ir">I.R.<br>IRAN</div>
+                  <div class="plate-bolt"></div>
+                  <div class="plate-bolt"></div>
+                </div>
+                <div class="plate-main">
+                  <div class="plate-section">
+                    <input class="plate-digit" name="plate_d1" value="{{ plate_slots.plate_d1 }}" inputmode="numeric" maxlength="1">
+                    <input class="plate-digit" name="plate_d2" value="{{ plate_slots.plate_d2 }}" inputmode="numeric" maxlength="1">
+                  </div>
+                  <div class="plate-section">
+                    <select class="plate-letter" name="plate_letter">
+                      <option value="">— حرف —</option>
+                      {% for l in 'ابپتجچحخدذرزسشصعغفقکگلمنوهی' %}
+                      <option value="{{ l }}" {% if plate_slots.plate_letter == l %}selected{% endif %}>{{ l }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="plate-section">
+                    <input class="plate-digit" name="plate_d3" value="{{ plate_slots.plate_d3 }}" inputmode="numeric" maxlength="1">
+                    <input class="plate-digit" name="plate_d4" value="{{ plate_slots.plate_d4 }}" inputmode="numeric" maxlength="1">
+                    <input class="plate-digit" name="plate_d5" value="{{ plate_slots.plate_d5 }}" inputmode="numeric" maxlength="1">
+                  </div>
+                  <div class="plate-iran">
+                    <span class="plate-iran-label">ایران</span>
+                    <div class="plate-section">
+                      <input class="plate-digit" name="plate_ir1" value="{{ plate_slots.plate_ir1 }}" inputmode="numeric" maxlength="1">
+                      <input class="plate-digit" name="plate_ir2" value="{{ plate_slots.plate_ir2 }}" inputmode="numeric" maxlength="1">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if finder_candidates %}
+        <div class="form-group">
+          <label class="field-label">چندین پرونده یافت شد — یکی را انتخاب کنید:</label>
+          <div class="candidate-list">
+            {% for c in finder_candidates %}
+            <button type="submit" name="pick_record_id" value="{{ c.pk }}" class="candidate-btn">
+              <span class="c-code">{{ c.code }}</span>
+              <span>{% if c.ins_label %}<b>{{ c.ins_label }}</b> — {% endif %}شماره پرونده {{ c.case_number }}{% if c.plate %} — پلاک {{ c.plate }}{% endif %}{% if c.name %} — {{ c.name }}{% endif %}</span>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary btn-large" id="find-case-btn">
+        {% if case %}ذخیرهٔ تغییرات پرونده{% else %}ساخت پوشه و باز کردن بخش‌های بارگذاری{% endif %}
+      </button>
+    </form>
+
+  </div>
+
+  {# ==================== upload sections ==================== #}
+  {% if case %}
+  {# v1.17 — a clear separator between the information section and the images #}
+  <div class="section-separator" role="separator">
+    <span class="section-separator-line"></span>
+    <span class="section-separator-label"> بارگذاری تصاویر</span>
+    <span class="section-separator-line"></span>
+  </div>
+
+  <p class="card-desc">
+    تصاویر <b>مقصر</b>در سه بخش زیر بارگذاری کنید
+  </p>
+
+  {% include 'main/_party_groups.html' with groups=atfault_groups party_id='' %}
+
+  <div id="victims-wrap">
+    {% for v in victims %}
+      {% include 'main/_victim_block.html' with victim=v.obj groups=v.groups %}
+    {% endfor %}
+  </div>
+
+  {# ---------- اضافه کردن زیان دیده ---------- #}
+  <div class="victim-add-box" id="victim-add-box">
+    <button type="button" class="btn btn-accent btn-large victim-add-trigger" id="add-victim-btn">
+      ＋ اضافه کردن زیان دیده
+    </button>
+    <div class="victim-form hidden" id="victim-form">
+      <div class="form-grid form-grid-2">
+        <div class="form-group mt-0">
+          <label for="vf_first_name">نام</label>
+          <input type="text" id="vf_first_name" autocomplete="off">
+        </div>
+        <div class="form-group mt-0">
+          <label for="vf_last_name">نام خانوادگی</label>
+          <input type="text" id="vf_last_name" autocomplete="off">
+        </div>
+        <div class="form-group mt-0">
+          <label for="vf_national_code">کد ملی</label>
+          <input type="text" id="vf_national_code" class="mono" dir="ltr" inputmode="numeric"
+                 placeholder="(اختیاری)">
+        </div>
+        <div class="form-group mt-0" style="grid-column:1/-1">
+          <label class="field-label">شماره پلاک <span class="required-dot">*</span></label>
+          <div class="plate-wrapper" dir="ltr">
+            <div class="plate" id="vf-plate">
+              <div class="plate-blue">
+                <div class="plate-flag"><span class="f-green"></span><span class="f-white"></span><span class="f-red"></span></div>
+                <div class="plate-ir">I.R.<br>IRAN</div>
+                <div class="plate-bolt"></div>
+                <div class="plate-bolt"></div>
+              </div>
+              <div class="plate-main">
+                <div class="plate-section">
+                  <input class="plate-digit" name="vf_plate_d1" inputmode="numeric" maxlength="1" autocomplete="off">
+                  <input class="plate-digit" name="vf_plate_d2" inputmode="numeric" maxlength="1" autocomplete="off">
+                </div>
+                <div class="plate-section">
+                  <select class="plate-letter" name="vf_plate_letter">
+                    <option value="">— حرف —</option>
+                    {% for l in 'ابپتجچحخدذرزسشصعغفقکگلمنوهی' %}
+                    <option value="{{ l }}">{{ l }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="plate-section">
+                  <input class="plate-digit" name="vf_plate_d3" inputmode="numeric" maxlength="1" autocomplete="off">
+                  <input class="plate-digit" name="vf_plate_d4" inputmode="numeric" maxlength="1" autocomplete="off">
+                  <input class="plate-digit" name="vf_plate_d5" inputmode="numeric" maxlength="1" autocomplete="off">
+                </div>
+                <div class="plate-iran">
+                  <span class="plate-iran-label">ایران</span>
+                  <div class="plate-section">
+                    <input class="plate-digit" name="vf_plate_ir1" inputmode="numeric" maxlength="1" autocomplete="off">
+                    <input class="plate-digit" name="vf_plate_ir2" inputmode="numeric" maxlength="1" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slot-actions" style="margin-top:8px">
+        <button type="button" class="btn btn-primary" id="victim-save-btn">ثبت زیان‌دیده</button>
+        <button type="button" class="btn btn-secondary" id="victim-cancel-btn">انصراف</button>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <form method="post" action="{% url 'finish' %}" id="finish-form">
+    {% csrf_token %}
+    <div class="finish-center">
+      <button type="submit" class="btn btn-success btn-finish" id="finish-btn">
+        اتمام و ساخت پوشه
+      </button>
+    </div>
+    <div class="field-hint" style="text-align:center; margin-top:8px">
+      پرونده در حال بررسی با هوش مصنوعی با شماره یکتا می‌باشد.
+    </div>
+  </form>
+  {% else %}
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/media.js' %}?v={{ STATIC_VERSION }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  DANA.initCaseFinder();
+  DANA.initUploadPage();
+});
+</script>
+{% endblock %}

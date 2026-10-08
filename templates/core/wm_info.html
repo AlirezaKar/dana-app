@@ -1,0 +1,79 @@
+{% load static %}<!DOCTYPE html>
+{# v1.18 — public page opened by scanning the watermark QR (name='wm_info'). #}
+{# Standalone on purpose: anonymous read-only, no session / JS required. #}
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>اطلاعات واترمارک</title>
+<style>
+  :root {
+    --ink: #1d2b36; --muted: #6b7c8c; --line: #e2e8f0; --bg: #f4f7fa;
+    --brand: #2f6f4f; --panel: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Vazirmatn, Tahoma, sans-serif; background: var(--bg);
+    color: var(--ink); min-height: 100vh; display: flex; align-items: center;
+    justify-content: center; padding: 16px;
+  }
+  .wm-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 6px 22px rgba(20, 40, 60, .08); width: 100%; max-width: 520px;
+    overflow: hidden;
+  }
+  .wm-head {
+    display: flex; align-items: center; gap: 14px; padding: 18px 22px;
+    border-bottom: 1px solid var(--line); background: #fbfcfe;
+  }
+  .wm-head img { height: 42px; width: auto; }
+  .wm-head img.logo-sep { opacity: .9; }
+  .wm-title { font-size: 17px; font-weight: 700; }
+  .wm-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    padding: 13px 22px; font-size: 14px; text-align: right;
+    border-bottom: 1px solid var(--line); vertical-align: top;
+  }
+  th { width: 38%; color: var(--muted); font-weight: 600; background: #fbfcfe; }
+  td { font-weight: 700; word-break: break-all; }
+  tr:last-child th, tr:last-child td { border-bottom: none; }
+  .wm-foot {
+    padding: 12px 22px; font-size: 11px; color: var(--muted);
+    border-top: 1px solid var(--line); background: #fbfcfe; text-align: center;
+  }
+  .empty { color: #b35c5c; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wm-card">
+    <div class="wm-head">
+      <img src="{% static 'img/dana-logo.png' %}" alt="لوگوی دانا">
+      <img class="logo-sep" src="{% static 'img/hef.co.ir.png' %}" alt="لوگوی hfco">
+      <div>
+        <div class="wm-title">اطلاعات واترمارک تصویر</div>
+        <div class="wm-sub">شناسهٔ ثبت‌شده روی تصاویر این پرونده</div>
+      </div>
+    </div>
+    <table>
+      <tr>
+        <th>کد رایانه</th>
+        <td>{% if code %}{{ code }}{% else %}<span class="empty">—</span>{% endif %}</td>
+      </tr>
+      <tr>
+        <th>شماره پرونده</th>
+        <td>{% if case_number %}{{ case_number }}{% else %}<span class="empty">—</span>{% endif %}</td>
+      </tr>
+      <tr>
+        <th>نام کاربری</th>
+        <td>{% if username %}{{ username }}{% else %}<span class="empty">—</span>{% endif %}</td>
+      </tr>
+      <tr>
+        <th>تاریخ و ساعت</th>
+        <td>{% if at %}{{ at }}{% else %}<span class="empty">—</span>{% endif %}</td>
+      </tr>
+    </table>
+    <div class="wm-foot">اطلاعات این صفحه از کد QR واترمارک تصویر خوانده شده است.</div>
+  </div>
+</body>
+</html>

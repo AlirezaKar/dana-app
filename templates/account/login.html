@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}مرحله ۱ — ورود و اطلاعات{% endblock %}
+{% block content %}
+
+<div class="steps">
+  <div class="step active"><span class="step-num">۱</span><span class="step-label">اطلاعات</span></div>
+  <div class="step-line"></div>
+  <div class="step"><span class="step-num">۲</span><span class="step-label">آپلود</span></div>
+  <div class="step-line"></div>
+  <div class="step"><span class="step-num">۳</span><span class="step-label">پایان</span></div>
+</div>
+
+<div class="card" id="login-page" data-insurance="{{ insurance_type }}">
+  <div class="card-title-row">
+    <h2 class="card-title">
+      {% if stage == 1 %}ورود به سامانه{% else %}انتخاب نوع بیمه{% endif %}
+    </h2>
+    <span class="card-logos">
+      <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/dana-logo.png' %}" alt="بیمه دانا" class="card-logo"></a>
+      <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/hef.co.ir.png' %}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
+    </span>
+  </div>
+
+  {# ---- informational badges (no action) ---- #}
+  {% if username or user_type_label or insurance_label %}
+  <div class="badges">
+    {% if username %}<span class="badge">نام کاربری: <b class="mono">{{ username }}</b></span>{% endif %}
+    {% if user_type_label %}<span class="badge">نوع کاربری: <b>{{ user_type_label }}</b></span>{% endif %}
+    {% if insurance_label %}<span class="badge">نوع بیمه: <b>{{ insurance_label }}</b></span>{% endif %}
+    {% if username %}
+      <a class="badge badge-link" href="{% url 'logout' %}" title="خروج از حساب">خروج</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if messages %}{% endif %}
+  {% if errors %}
+    <div class="messages">{% for e in errors %}<div class="alert alert-error">{{ e }}</div>{% endfor %}</div>
+  {% endif %}
+
+  {# ---------------- page 1: the login form (v1.14) ---------------- #}
+  {% if stage == 1 %}
+    {% if username %}
+      <p class="card-desc">شما با حساب <b class="mono">{{ username }}</b>
+        ({{ user_type_label }}) وارد شده‌اید. برای شروع فرایند بیمه ادامه دهید یا «خروج» بزنید.</p>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="stage" value="1">
+        <button type="submit" class="btn btn-primary btn-large">ادامه به فرایند بیمه</button>
+        <a href="{% url 'logout' %}" class="btn btn-secondary btn-large back-btn">خروج از حساب</a>
+      </form>
+    {% else %}
+      <form method="post" novalidate id="auth-form">
+        {% csrf_token %}
+        <input type="hidden" name="stage" value="1">
+
+        <div class="auth-frame" id="auth-frame">
+          <div class="form-group mt-0">
+            <label for="id_username">نام کاربری <span class="required-dot">*</span></label>
+            <input type="text" id="id_username" name="username" class="mono auth-input" dir="ltr"
+                   autocomplete="off" placeholder="">
+            <div class="field-hint" id="auth-prefix-note"></div>
+          </div>
+          <div class="form-group mt-0" id="password-row">
+            <label for="id_password">رمز عبور <span class="required-dot" id="password-required">*</span></label>
+            <input type="password" id="id_password" name="password" class="mono auth-input" dir="ltr"
+                   autocomplete="off">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-large">ورود و ادامه</button>
+      </form>
+    {% endif %}
+
+  {# ---------------- page 2: insurance type (v1.15 — back) ---------------- #}
+  {% else %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="stage" value="2">
+      <div class="option-grid-2">
+        {% for key, label in insurance_types %}
+        <label class="option-card">
+          <input type="radio" name="insurance_type" value="{{ key }}" {% if insurance_type == key %}checked{% endif %}>
+          <span class="opt-body">
+            {{ label }}
+            <span class="opt-dot" style="background:{% if key == 'body' %}#1f9d55{% else %}#d6336c{% endif %}"></span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn-primary btn-large">ادامه به آپلود تصاویر</button>
+    </form>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () { DANA.initLogin(); });
+</script>
+{% endblock %}

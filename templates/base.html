@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="{{ theme }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}سامانه ثبت پرونده و تصاویر بیمه دانا{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v={{ STATIC_VERSION }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <h1>سامانه ثبت پرونده و تصاویر بیمه دانا</h1>
+      <p>ثبت اطلاعات خودرو و بارگذاری تصاویر</p>
+    </div>
+    {% if show_exit %}
+    {# v1.12 — exit from every page (the wizard page and the final page have their own) #}
+    <a class="header-exit" href="{% url 'logout' %}" title="خروج از حساب {{ session_username }}">
+      <span class="header-exit-ico" aria-hidden="true">⏻</span>
+      <span>خروج{% if session_username %} <b class="mono">{{ session_username }}</b>{% endif %}</span>
+    </a>
+    {% endif %}
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-line">تمامی حقوق محفوظ است ver: 1.1 </div>
+    <div class="footer-line footer-line-brands">
+      <a href="{{ DANA_URL }}" target="_blank" rel="noopener">بیمه دانا</a>
+      <span class="footer-sep">-</span>
+      <a href="{{ HEF_URL }}" target="_blank" rel="noopener">هوشمند ارتباط فرادید</a>
+    </div>
+    {% if dev_tools %}
+    <div class="dev-foot">
+      <input type="number" id="dev-gap-input" class="dev-gap-input" name="dev_car_max_gap"
+             value="{{ dev_gap }}" min="1" max="3600" step="1" inputmode="numeric"
+             autocomplete="off" data-url="{% url 'dev_setting' %}"
+             data-key="CAR_IMAGE_MAX_GAP_SECONDS"
+             data-overridden="{{ dev_gap_overridden|yesno:'1,' }}"
+             title="CAR_IMAGE_MAX_GAP_SECONDS — حداکثر فاصلهٔ مجاز بین دو تصویر پیاپی «اطراف ماشین و شماره شاسی ماشین» به ثانیه (خالی = مقدار فایل .env)"
+             aria-label="CAR_IMAGE_MAX_GAP_SECONDS">
+    </div>
+    {% endif %}
+    {% block footer_extra %}{% endblock %}
+  </footer>
+
+  {# v1.12 — the session countdown runs on every page #}
+  <script>window.DANA_TIMEOUT = {{ session_timeout_json|safe }};</script>
+  {# v1.14 — the native browser Back button acts like our own back button #}
+  <script>window.DANA_BACK = "{{ back_url|default:''|escapejs }}";</script>
+  <script src="{% static 'js/core.js' %}?v={{ STATIC_VERSION }}"></script>
+  {% block scripts %}{% endblock %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.DANA && DANA.initTimeout) DANA.initTimeout();
+      if (window.DANA && DANA.initDevGap) DANA.initDevGap();
+    });
+  </script>
+</body>
+</html>
