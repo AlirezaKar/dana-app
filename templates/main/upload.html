@@ -58,6 +58,11 @@
         </div>
       </div>
 
+      <label class="idk-check" style="margin:4px 0 8px;">
+        <input type="checkbox" name="has_krokki" value="on" {% if finder_state.has_krokki %}checked{% endif %}>
+        کروکی دارم
+      </label>
+
       {# information panel — the single small scrollable box (v1.14) #}
       <div id="record-panel" class="record-panel {% if not record_panel %}hidden{% endif %}">
         <div class="record-panel-head" id="record-panel-title">{{ record_panel.title|default:'' }}</div>
@@ -149,11 +154,13 @@
     <span class="section-separator-line"></span>
   </div>
 
+  {% if not case.has_krokki %}
   <p class="card-desc">
     تصاویر <b>مقصر</b>در سه بخش زیر بارگذاری کنید
   </p>
 
   {% include 'main/_party_groups.html' with groups=atfault_groups party_id='' %}
+  {% endif %}
 
   <div id="victims-wrap">
     {% for v in victims %}

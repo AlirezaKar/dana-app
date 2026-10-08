@@ -46,6 +46,8 @@ class CaseSubmission(models.Model):
     entered_national_code = models.CharField('کد ملی (واردشده)', max_length=12, blank=True)
 
     plate_changed = models.BooleanField('پلاک خودرو تغییر کرده است', default=False)
+    has_krokki = models.BooleanField('کروکی دارم', default=False,
+                                     help_text='در صورت فعال بودن، بخش بارگذاری تصاویر مقصر نادیده گرفته می‌شود')
     plate_value = models.CharField('پلاک جدید (کامپوننت پلاک)', max_length=32, blank=True,
                                    help_text='قالب مشابه اکسل، مثال: 94س225')
     plate_serial = models.CharField('سریال پلاک جدید', max_length=8, blank=True)

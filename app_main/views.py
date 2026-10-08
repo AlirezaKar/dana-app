@@ -217,6 +217,7 @@ def _finder_context(request, submission):
         'file_code': (submission.entered_file_code if submission else '')
                      or (submission.any_record.computer_code if submission and submission.any_record else ''),
         'plate_changed': bool(submission.plate_changed) if submission else False,
+        'has_krokki': bool(submission.has_krokki) if submission else False,
     }
     insurance = (submission.insurance_type if submission
                  else (request.session.get('login_state') or {}).get('insurance_type', ''))
@@ -283,6 +284,7 @@ def resolve_case(request):
     p = request.POST
     file_code = (p.get('file_code', '') or '').strip()
     plate_changed = p.get('plate_changed') == 'on'
+    has_krokki = p.get('has_krokki') == 'on'
     plate_value, plate_serial = build_plate_value(p)
 
     submission = _own_submission(request)
@@ -332,6 +334,7 @@ def resolve_case(request):
         fake['finder_state'].update({
             'file_code': file_code,
             'plate_changed': plate_changed,
+            'has_krokki': has_krokki,
         })
         ctx.update(fake)
         return render(request, 'main/upload.html', ctx)
@@ -373,6 +376,7 @@ def resolve_case(request):
     submission.plate_changed = plate_changed
     submission.plate_value = plate_value if plate_changed else ''
     submission.plate_serial = plate_serial if plate_changed else ''
+    submission.has_krokki = has_krokki
     is_edit = submission.pk is not None
     if submission.finished_at is None:
         submission.save()
@@ -527,7 +531,9 @@ def finish(request):
     if submission.finished_at:
         return redirect('step3_done')
 
-    errors = _check_owner(request, submission, 'مقصر')
+    errors = []
+    if not submission.has_krokki:
+        errors += _check_owner(request, submission, 'مقصر')
     for v in submission.victims.all():
         errors += _check_owner(request, v, f'زیان‌دیده {v.plate_number}')
     if errors:
@@ -592,6 +598,7 @@ def done_page(request):
         'folder': storage.case_dir(submission),
         'folder_rel': str(storage.case_dir(submission).relative_to(storage.root())).replace('\\', '/'),
         'atfault_groups': groups_context(submission, dev_gap),
+        'atfault_total': submission.images.filter(party__isnull=True).count(),
         'victims': [{'obj': v, 'groups': groups_context(v, dev_gap)}
                     for v in submission.victims.all()],
         'image_total': submission.images.count(),

@@ -69,6 +69,7 @@
   <div class="done-section">
     <h3 class="done-title">تصاویر بارگذاری‌شده ({{ image_total }})</h3>
     {% if image_total %}
+      {% if atfault_total %}
       <div class="gallery-group">
         <h4>تصاویر مقصر</h4>
         {% for g in atfault_groups %}
@@ -90,6 +91,7 @@
           {% endfor %}
         {% endfor %}
       </div>
+      {% endif %}
 
       {% for v in victims %}
       <div class="gallery-group">
