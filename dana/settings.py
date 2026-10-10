@@ -153,6 +153,12 @@ STATIC_ROOT = _path('STATIC_ROOT', STATIC_SOURCES)
 #: the templates no longer hardcode versions).
 STATIC_VERSION = env.get('STATIC_VERSION', '1.21')
 
+# v1.22 — let WhiteNoise send a Cache-Control on /static/ in production; every
+# css/js/logo link carries ?v=STATIC_VERSION, so a release bumps the version and
+# busts the cache while browsers still revalidate between releases. Dev stays at
+# 0 so template/asset edits are always picked up.
+WHITENOISE_MAX_AGE = 0 if DEBUG else 3600
+
 # v1.18 — absolute base URL for the watermark QR target when the request cannot
 # provide one (management commands). Empty → the QR is skipped, never broken.
 PUBLIC_BASE_URL = env.get('PUBLIC_BASE_URL', '')

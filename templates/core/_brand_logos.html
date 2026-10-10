@@ -12,16 +12,16 @@ Variants:  (default) the linked pair in a card header
            plain      bare img tags, no links (the public info page)
 {% endcomment %}
 {% if variant == 'plain' %}
-<img src="{% static DANA_LOGO %}" alt="لوگوی دانا">
-<img class="logo-sep" src="{% static HEF_LOGO %}" alt="لوگوی هوشمند ارتباط فرادید">
+<img src="{% static DANA_LOGO %}?v={{ STATIC_VERSION }}" alt="لوگوی دانا">
+<img class="logo-sep" src="{% static HEF_LOGO %}?v={{ STATIC_VERSION }}" alt="لوگوی هوشمند ارتباط فرادید">
 {% elif variant == 'thanks' %}
 <span class="thanks-logos">
-  <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static DANA_LOGO %}" alt="بیمه دانا"></a>
-  <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static HEF_LOGO %}" alt="هوشمند ارتباط فرادید"></a>
+  <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static DANA_LOGO %}?v={{ STATIC_VERSION }}" alt="بیمه دانا"></a>
+  <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static HEF_LOGO %}?v={{ STATIC_VERSION }}" alt="هوشمند ارتباط فرادید"></a>
 </span>
 {% else %}
 <span class="card-logos">
-  <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static DANA_LOGO %}" alt="بیمه دانا" class="card-logo"></a>
-  <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static HEF_LOGO %}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
+  <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static DANA_LOGO %}?v={{ STATIC_VERSION }}" alt="بیمه دانا" class="card-logo"></a>
+  <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static HEF_LOGO %}?v={{ STATIC_VERSION }}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
 </span>
 {% endif %}
