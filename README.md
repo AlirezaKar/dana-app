@@ -39,11 +39,25 @@ pip install -r requirements.txt
 cp .env.sample .env            # optional — defaults are fine for a first run
 python manage.py migrate
 python manage.py seed_sample_data      # reads the Excel files from storage/data/
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000   # development only
 ```
 
 - App: `http://localhost:8000/`
 - Admin: `http://localhost:8000/admin/` (user `admin` / `DanaDev!2026` — dev only)
+
+`runserver` is Django's development server (auto-reload, debug pages) — it says so
+itself and is not meant for a real installation. For a real one use the packaged
+production server (waitress, multi-threaded, no development warning):
+
+```bash
+python manage.py serve --collectstatic        # host/port from .env (SERVER_*)
+python manage.py serve --host 0.0.0.0 --port 8000 --threads 16
+```
+
+`serve` runs `DEBUG=False`, collects the static files into `statics/` and serves
+them through WhiteNoise, so nothing else (nginx or similar) is required on a
+single machine. Put it behind your own TLS terminator if the app must be reached
+over HTTPS.
 
 ## «no such column» — repair an old database (v1.12)
 
@@ -360,31 +374,32 @@ Files: `app_account/middleware.py` (`SessionTimeoutMiddleware`, `close_session`)
 + `app_core/static/css/style.css` (the popup), `app_account/models.py`
 (`session_timeout` action, migration `0004`).
 
-## Exit button on every page (دکمهٔ خروج) — v1.12
+## One way out (دکمهٔ خروج) — v1.21
 
-Every page that has a logged-in operator shows a white «⏻ خروج <نام کاربری>» pill
-in the header (`app_core/templates/base.html` + `show_exit` from
-`app_core/context_processors.py`). The wizard's own pages keep the badge «خروج»
-they already had, and the final page keeps its own **«بازگشت به شروع»** — so there
-is exactly one way out on every page, never two.
+The pill in the page header is gone: the **badge next to the user's information**
+(نام کاربری / نوع کاربر / مشاهدهٔ پوشه‌ها) is the only exit on the wizard pages,
+and the final page keeps its own **«بازگشت به شروع»**. There are no icons anywhere
+in the app any more (v1.21) — every action is a word: «حذف», «بستن», «دوربین»,
+«گالری».
 
 ## Where the photos live & when the watermark is applied (v1.13)
 
 ```
 storage/
-├── data/                     the Excel files (reference data)
-├── tmp/<session>/<section>/  photos as they were uploaded — RAW, unstamped
-└── files/<unique-number>/<section>/   a finished case: watermark + metadata inside
+├── data/                                     the Excel files (reference data)
+└── files/<تاریخ>/<کد رایانه>-<نام کاربری>/     one case (open or finished)
+        ├── car_card_front.jpg, plate_front.jpg …  the مقصر's photos, named by field
+        └── <شماره پلاک>/                        one folder per زیان‌دیده
 ```
 
-- Uploads land in `storage/tmp/…` untouched (already named «کد رایانه پرونده,تاریخ
-  و ساعت»), so «حذف» and «تغییر» stay cheap.
-- **On «اتمام پرونده»** every photo gets the watermark and the metadata comment
-  *just before* it is written into its final folder `storage/files/<case>/<section>/`
-  (`app_media/services/storage.py::finalize_case`). The whole case therefore ends
-  up in one folder, in order. If stamping fails for a file, the raw photo is still
-  stored and the reason is logged — the process never breaks
-  (`./watermark.sh --case <DN-…>` can stamp it later).
+- There is **no temporary area** any more (v1.14): a photo is written straight
+  into the folder of its case (`app_media/services/storage.py::save_case_image`),
+  in the format it arrived in — HEIC/HEIF/DNG are stored byte-for-byte, JPEG/PNG
+  are re-saved with the stamp inside.
+- The watermark and the metadata comment are applied **at upload time**; if
+  stamping fails for a file the raw photo is still stored and the reason is
+  logged — the process never breaks (`./watermark.sh --case <…>` can stamp it
+  later). HEIC/DNG cannot be stamped by Pillow and are deliberately skipped.
 - `./watermark.sh` remains the manual twin: no arguments = photos that are not
   stamped yet, `--all`, `--case DN-…`, `--force`, `--out DIR` (fresh copies; names
   are kept and never overwritten), `--comment-only`, `--rename`, `--dry-run`.
@@ -398,7 +413,7 @@ badges; it opens the storage browser in a **new tab**.
 
 | URL | Page |
 |---|---|
-| `/media/storage/` | all content of `storage/tmp` — one link button per session folder (files, size, Jalali time, thumbnails) + every file name/image, then `storage/data` files and the final `storage/DN-…` folders |
+| `/media/storage/` | the case folders of the logged-in user under `storage/files/<تاریخ>/…` — one link button per folder (files, size, Jalali time, thumbnails) + every file name/image, then the `storage/data` files. Read-only. |
 | `/media/storage/folder/<path>/` | detail page of **one** folder: breadcrumb, its subfolders (again link buttons) and its files (name, label, size, pixel size, Jalali time, preview, نمایش/دانلود) |
 | `/media/storage/raw/<path>` | one file, inline (used for the thumbnails) |
 
@@ -460,8 +475,10 @@ link change is a one-line edit in the settings instead of four template files.
    The upload page shows the same full information panel (with «ویرایش اطلاعات»), the slot
    titles carry no counters, and the finish button is centered below everything.
 
-Images are kept in `storage/tmp/<session>/…` until «اتمام», then moved to
-`storage/<unique_number>/<section>/…` (watermark hook: `app_media/services/watermark.py`).
+Images are written straight into
+`storage/files/<تاریخ>/<کد رایانه>-<نام کاربری>/…` — a زیان‌دیده gets its own
+subfolder named after its plate (watermark hook:
+`app_media/services/watermark.py`).
 
 ## Layout
 
