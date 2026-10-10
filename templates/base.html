@@ -14,13 +14,8 @@
       <h1>سامانه ثبت پرونده و تصاویر بیمه دانا</h1>
       <p>ثبت اطلاعات خودرو و بارگذاری تصاویر</p>
     </div>
-    {% if show_exit %}
-    {# v1.12 — exit from every page (the wizard page and the final page have their own) #}
-    <a class="header-exit" href="{% url 'logout' %}" title="خروج از حساب {{ session_username }}">
-      <span class="header-exit-ico" aria-hidden="true">⏻</span>
-      <span>خروج{% if session_username %} <b class="mono">{{ session_username }}</b>{% endif %}</span>
-    </a>
-    {% endif %}
+    {# v1.21 — the «خروج» of the page header is gone (owner request): the only  #}
+    {# exit left is the badge next to the user's name on the pages that have it. #}
   </header>
 
   <main class="container">

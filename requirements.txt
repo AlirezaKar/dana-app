@@ -9,3 +9,8 @@ qrcode[pil]>=7.4
 # Pillow wheels lack libraqm). Guarded — absent packages degrade gracefully.
 arabic-reshaper>=3.0
 python-bidi>=0.4
+# v1.21 — production: `python manage.py serve` runs waitress (a real WSGI
+# server, Windows-friendly) and WhiteNoise serves the static files from
+# STATIC_ROOT, so no nginx/IIS is needed for a small installation.
+waitress>=3.0
+whitenoise>=6.6

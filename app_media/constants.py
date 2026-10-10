@@ -7,8 +7,8 @@ the name of its field (``car_card_front.jpg``, ``license_back.jpg``, …).
 
 G1 — «پشت و رو گواهینامه و کارت ماشین»
     license_front / license_back / car_card_front / car_card_back
-    bulk taking, **no timer**; a confirm button at the end of the group that
-    may be pressed again and again (no one-time limitation).
+    bulk taking, **no timer**; its confirm is **one-time** (v1.21, owner
+    request: «like the other sections») — after it the group is locked.
 
 G2 — «شماره شاسی و پلاک‌ها»
     chassis_number / plate_front / plate_back
@@ -39,6 +39,11 @@ TITLE_BY_KEY = dict(SECTION_CHOICES)
 # «عکس‌های اطراف ماشین» is a multi-photo field (4 …).
 MULTI_PHOTO_SECTIONS = {'car_shots'}
 
+#: v1.21 — the fields that take a single photo (the complement of the multi
+#: ones). Their upload buttons disappear as soon as the field has its photo and
+#: come back when that photo is deleted; a second upload is refused.
+SINGLE_PHOTO_SECTIONS = {k for k, _ in SECTION_CHOICES if k not in MULTI_PHOTO_SECTIONS}
+
 # minimum images per field (None = unlimited)
 SECTION_MIN = {
     'license_front': 1,
@@ -65,7 +70,7 @@ SECTION_MAX = {
 # --------------------------------------------------------------------------- #
 # the three upload groups (identical for مقصر and every زیان‌دیده)
 # --------------------------------------------------------------------------- #
-GROUP_DOCS = 'group_docs'        # no timer, confirm repeatable
+GROUP_DOCS = 'group_docs'        # no timer, one-time confirm (v1.21)
 GROUP_PLATES = 'group_plates'    # timed, one-time confirm
 GROUP_CAR = 'group_car'          # timed, one-time confirm
 
@@ -76,9 +81,9 @@ GROUPS = [
         'title': 'پشت و رو گواهینامه و کارت ماشین',
         'sections': ['license_front', 'license_back', 'car_card_front', 'car_card_back'],
         'timed': False,
-        'one_time_confirm': False,
+        'one_time_confirm': True,
         'hint': 'تصاویر گواهینامه و کارت ماشین (پشت و رو) را بارگذاری کنید؛ '
-                'در پایان بخش «تأیید» بزنید (امکان تأیید دوباره وجود دارد).',
+                'در پایان بخش «تأیید نهایی» بزنید (فقط یک‌بار).',
     },
     {
         'id': GROUP_PLATES,

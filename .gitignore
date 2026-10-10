@@ -15,3 +15,6 @@ storage/tmp/
 # generated static output (collectstatic) — rebuilt with `manage.py collectstatic`
 staticfiles/
 statics/admin/
+
+# generated at runtime (Excel re-sync marker) — never hand-edited
+storage/.excel_signature.json

@@ -1,0 +1,27 @@
+{% load static %}
+{% comment %}
+THE brand logos (v1.21) — one file, one pair of images.
+
+Every page includes this partial instead of hardcoding a path, and the two
+file names come from `.env` (DANA_LOGO / HEF_LOGO -> settings.BRAND_LOGOS).
+Replace statics/img/dana-logo.png, or point DANA_LOGO at another file, and
+the whole site (pages + the watermark stamp) changes with it.
+
+Variants:  (default) the linked pair in a card header
+           thanks     the pair on the final page
+           plain      bare img tags, no links (the public info page)
+{% endcomment %}
+{% if variant == 'plain' %}
+<img src="{% static DANA_LOGO %}?v={{ STATIC_VERSION }}" alt="لوگوی دانا">
+<img class="logo-sep" src="{% static HEF_LOGO %}?v={{ STATIC_VERSION }}" alt="لوگوی هوشمند ارتباط فرادید">
+{% elif variant == 'thanks' %}
+<span class="thanks-logos">
+  <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static DANA_LOGO %}?v={{ STATIC_VERSION }}" alt="بیمه دانا"></a>
+  <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static HEF_LOGO %}?v={{ STATIC_VERSION }}" alt="هوشمند ارتباط فرادید"></a>
+</span>
+{% else %}
+<span class="card-logos">
+  <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static DANA_LOGO %}?v={{ STATIC_VERSION }}" alt="بیمه دانا" class="card-logo"></a>
+  <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static HEF_LOGO %}?v={{ STATIC_VERSION }}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
+</span>
+{% endif %}

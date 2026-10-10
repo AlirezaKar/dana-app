@@ -2,10 +2,6 @@
 from django.conf import settings
 from django.urls import reverse
 
-#: pages that already carry their own «خروج» control (the wizard) or are the end
-#: of the flow (the final page) — the global header button is hidden there
-NO_GLOBAL_EXIT = {'login', 'login_post', 'logout', 'step3_done', 'session_ping'}
-
 #: v1.14 — the native browser Back button must act like **our own** back button:
 #: each page declares where «بازگشت» leads and core.js routes popstate there.
 BACK_URLS = {
@@ -59,8 +55,13 @@ def dana_context(request):
     dev_tools = dev_settings.enabled()
     dev_gap = dev_settings.get(request, 'CAR_IMAGE_MAX_GAP_SECONDS')
 
-    # v1.12 — the header «خروج» button (every page except the wizard, which has
-    # its own badges, and the final page) + the session countdown
+    # v1.21 — the only image formats an upload may have (HEIC/HEIF, JPEG/JPG,
+    # PNG, DNG): the «accept» attribute of every file input comes from here, so
+    # the list lives in one place (app_media/services/formats.py).
+    from app_media.services.formats import ACCEPT_ATTR
+
+    # v1.21 — the header «خروج» button is gone; only the badge next to the
+    # user's name exits the app. The session countdown stays on every page.
     auth = request.session.get('auth') or {}
     url_name = getattr(getattr(request, 'resolver_match', None), 'url_name', '') or ''
     timeout = _session_timeout(request)
@@ -71,15 +72,20 @@ def dana_context(request):
         'has_case': bool((request.session.get('case') or {}).get('pk')),
         'has_session': bool(auth.get('username')),
         'session_username': auth.get('username', ''),
-        'show_exit': bool(auth.get('username')) and url_name not in NO_GLOBAL_EXIT,
         'back_url': BACK_URLS.get(url_name, ''),
         'dev_tools': dev_tools,
         'dev_gap': dev_gap,
         'dev_gap_overridden': dev_settings.is_overridden(request, 'CAR_IMAGE_MAX_GAP_SECONDS'),
+        # v1.21 — «accept» of every upload input (single list of formats)
+        'ACCEPT_IMAGE': ACCEPT_ATTR,
         'session_timeout_json': json.dumps(timeout, ensure_ascii=False),
         # brand links (settings.BRAND_URLS) — logo links + footer
         'DANA_URL': getattr(settings, 'BRAND_URLS', {}).get('DANA_URL', 'https://www.dana-insurance.com/'),
         'HEF_URL': getattr(settings, 'BRAND_URLS', {}).get('HEF_URL', 'http://hef.co.ir'),
+        # v1.21 — the logo FILES for templates/core/_brand_logos.html (the one
+        # place that renders them; settings.BRAND_LOGOS ← .env)
+        'DANA_LOGO': getattr(settings, 'BRAND_LOGOS', {}).get('DANA_LOGO', 'img/dana-logo.png'),
+        'HEF_LOGO': getattr(settings, 'BRAND_LOGOS', {}).get('HEF_LOGO', 'img/hef.co.ir.png'),
         # v1.16 — the css/js cache-buster comes from settings.STATIC_VERSION
         # (bumped per release) — the templates no longer hardcode versions.
         'STATIC_VERSION': getattr(settings, 'STATIC_VERSION', '1.16'),

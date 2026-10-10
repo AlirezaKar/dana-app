@@ -23,14 +23,24 @@ def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dana.settings')
     _tolerant_stdio()
     try:
+        import django
         from django.core.management import execute_from_command_line
+        from django.utils import translation
     except ImportError as exc:
         raise ImportError(
             "Couldn't import Django. Are you sure it's installed and "
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
-    execute_from_command_line(sys.argv)
+    # v1.21 — the **console** speaks English again (owner request): with
+    # LANGUAGE_CODE=fa-IR Django translates its own prompts («Email address:»
+    # → «آدرس ایمیل:»), which made `createsuperuser` & friends half-Persian.
+    # Only the command line is forced to English — the website and the admin
+    # keep the language configured in `.env`. (setup() must run first: the
+    # translation machinery needs the app registry.)
+    django.setup()
+    with translation.override('en'):
+        execute_from_command_line(sys.argv)
 
 
 if __name__ == '__main__':

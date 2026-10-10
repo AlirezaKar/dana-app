@@ -20,8 +20,18 @@ from django.db import models
 from app_core.constants import (  # re-exported for the other apps
     INSURANCE_TYPES, MATCHED_BY, USER_TYPES,
 )
+from app_core.utils.digits import national_code_error
 
 __all__ = ['USER_TYPES', 'INSURANCE_TYPES', 'MATCHED_BY', 'CaseSubmission', 'DamagedParty']
+
+
+def validate_national_code_field(value):
+    """Model validator — «کد ملی» is exactly ten digits, nothing else (v1.21)."""
+    from django.core.exceptions import ValidationError
+
+    error = national_code_error(value)
+    if error:
+        raise ValidationError(error, code='national_code')
 
 
 class CaseSubmission(models.Model):
@@ -39,11 +49,13 @@ class CaseSubmission(models.Model):
         related_name='submissions')
     matched_by = models.CharField('شناسهٔ یافت‌کننده', max_length=20, choices=MATCHED_BY, blank=True)
 
+    # v1.21 — a ثبت پرونده keeps **references** to the Excel tables (``record``
+    # / ``record_third``), never a second copy of their values: the information
+    # panels read the record itself, so an updated Excel file is reflected at
+    # once. The only fields stored here are the ones the user really enters —
+    # «کد رایانه پرونده» (the key of the case) and, when the plate changed, the
+    # new plate + its ایران serial.
     entered_file_code = models.CharField('کد رایانه پرونده (واردشده)', max_length=32, blank=True)
-    entered_policy_number = models.CharField('شماره بیمه نامه (واردشده)', max_length=32, blank=True)
-    entered_plate_number = models.CharField('شماره پلاک (واردشده)', max_length=32, blank=True)
-    entered_vin = models.CharField('شماره ماشین / VIN (واردشده)', max_length=64, blank=True)
-    entered_national_code = models.CharField('کد ملی (واردشده)', max_length=12, blank=True)
 
     plate_changed = models.BooleanField('پلاک خودرو تغییر کرده است', default=False)
     has_krokki = models.BooleanField('کروکی دارم', default=False,
@@ -106,6 +118,19 @@ class CaseSubmission(models.Model):
         """Plate as stored in the Excel files (e.g. 94س225)."""
         return self.plate_value or self.record_plate
 
+    def effective_plate_serial(self):
+        """The «ایران ##» part of :meth:`effective_plate` (its own column)."""
+        if self.plate_value:
+            return self.plate_serial
+        r = self.any_record
+        return getattr(r, 'plate_serial', '') if r else ''
+
+    @property
+    def plate_slots(self):
+        """The plate as the eight boxes of ``main/_plate.html`` (v1.21)."""
+        from app_core.utils.plate import plate_slots
+        return plate_slots(self.effective_plate(), self.effective_plate_serial())
+
     def effective_name(self):
         r = self.any_record
         return (getattr(r, 'driver_name', '') or getattr(r, 'atfault_driver', '')) if r else ''
@@ -131,6 +156,10 @@ class DamagedParty(models.Model):
     ``storage/files/<date>/<کد رایانه>-<username>/<شماره پلاک>/``). Each party
     uploads the same three image groups as مقصر and carries its own confirm
     state (the docs confirm is repeatable, the two timed ones are one-time).
+
+    v1.21 — the plate is stored the way the insurance tables store it: the main
+    part in :attr:`plate_number` (``94س225``) and the «ایران ##» part in
+    :attr:`plate_serial` (``63``). «کد ملی» follows one rule: exactly ten digits.
     """
 
     submission = models.ForeignKey(
@@ -138,8 +167,12 @@ class DamagedParty(models.Model):
         verbose_name='ثبت پرونده')
     first_name = models.CharField('نام', max_length=100, blank=True)
     last_name = models.CharField('نام خانوادگی', max_length=120, blank=True)
-    national_code = models.CharField('کد ملی', max_length=12, blank=True)
+    national_code = models.CharField('کد ملی', max_length=10, blank=True,
+                                     validators=[validate_national_code_field],
+                                     help_text='دقیقاً ۱۰ رقم (اختیاری)')
     plate_number = models.CharField('شماره پلاک', max_length=32)
+    plate_serial = models.CharField('سریال پلاک (ایران ##)', max_length=8, blank=True,
+                                    help_text='بخش «ایران ##» پلاک، جدا از خود پلاک')
 
     docs_confirmed_at = models.DateTimeField('زمان تأیید بخش اسناد', null=True, blank=True)
     plates_confirmed = models.BooleanField('تأیید نهایی شماره شاسی و پلاک‌ها', default=False)
@@ -155,14 +188,36 @@ class DamagedParty(models.Model):
         verbose_name_plural = 'زیان‌دیدگان'
         ordering = ['id']
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        from app_core.utils.digits import national_code_error, normalize_national_code
+
+        self.national_code = normalize_national_code(self.national_code)
+        error = national_code_error(self.national_code)
+        if error:
+            raise ValidationError({'national_code': error})
+
     @property
     def full_name(self):
         return f'{self.first_name} {self.last_name}'.strip()
 
     @property
+    def plate_slots(self):
+        """The plate as the eight boxes of ``main/_plate.html`` (v1.21)."""
+        from app_core.utils.plate import plate_slots
+        return plate_slots(self.plate_number, self.plate_serial)
+
+    @property
+    def plate_full(self):
+        """«94س225-63» — plate + its ایران serial (the way the DB keeps them)."""
+        return f'{self.plate_number}-{self.plate_serial}' if self.plate_serial else self.plate_number
+
+    @property
     def label(self):
         name = self.full_name
-        return f'{name} — {self.plate_number}' if name else self.plate_number
+        plate = self.plate_full
+        return f'{name} — {plate}' if name else plate
 
     def __str__(self):
         return f'زیان‌دیده {self.label}'

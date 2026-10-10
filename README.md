@@ -39,11 +39,25 @@ pip install -r requirements.txt
 cp .env.sample .env            # optional — defaults are fine for a first run
 python manage.py migrate
 python manage.py seed_sample_data      # reads the Excel files from storage/data/
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver 0.0.0.0:8000   # development only
 ```
 
 - App: `http://localhost:8000/`
 - Admin: `http://localhost:8000/admin/` (user `admin` / `DanaDev!2026` — dev only)
+
+`runserver` is Django's development server (auto-reload, debug pages) — it says so
+itself and is not meant for a real installation. For a real one use the packaged
+production server (waitress, multi-threaded, no development warning):
+
+```bash
+python manage.py serve --collectstatic        # host/port from .env (SERVER_*)
+python manage.py serve --host 0.0.0.0 --port 8000 --threads 16
+```
+
+`serve` runs `DEBUG=False`, collects the static files into `statics/` and serves
+them through WhiteNoise, so nothing else (nginx or similar) is required on a
+single machine. Put it behind your own TLS terminator if the app must be reached
+over HTTPS.
 
 ## «no such column» — repair an old database (v1.12)
 
@@ -360,31 +374,32 @@ Files: `app_account/middleware.py` (`SessionTimeoutMiddleware`, `close_session`)
 + `app_core/static/css/style.css` (the popup), `app_account/models.py`
 (`session_timeout` action, migration `0004`).
 
-## Exit button on every page (دکمهٔ خروج) — v1.12
+## One way out (دکمهٔ خروج) — v1.21
 
-Every page that has a logged-in operator shows a white «⏻ خروج <نام کاربری>» pill
-in the header (`app_core/templates/base.html` + `show_exit` from
-`app_core/context_processors.py`). The wizard's own pages keep the badge «خروج»
-they already had, and the final page keeps its own **«بازگشت به شروع»** — so there
-is exactly one way out on every page, never two.
+The pill in the page header is gone: the **badge next to the user's information**
+(نام کاربری / نوع کاربر / مشاهدهٔ پوشه‌ها) is the only exit on the wizard pages,
+and the final page keeps its own **«بازگشت به شروع»**. There are no icons anywhere
+in the app any more (v1.21) — every action is a word: «حذف», «بستن», «دوربین»,
+«گالری».
 
 ## Where the photos live & when the watermark is applied (v1.13)
 
 ```
 storage/
-├── data/                     the Excel files (reference data)
-├── tmp/<session>/<section>/  photos as they were uploaded — RAW, unstamped
-└── files/<unique-number>/<section>/   a finished case: watermark + metadata inside
+├── data/                                     the Excel files (reference data)
+└── files/<تاریخ>/<کد رایانه>-<نام کاربری>/     one case (open or finished)
+        ├── car_card_front.jpg, plate_front.jpg …  the مقصر's photos, named by field
+        └── <شماره پلاک>/                        one folder per زیان‌دیده
 ```
 
-- Uploads land in `storage/tmp/…` untouched (already named «کد رایانه پرونده,تاریخ
-  و ساعت»), so «حذف» and «تغییر» stay cheap.
-- **On «اتمام پرونده»** every photo gets the watermark and the metadata comment
-  *just before* it is written into its final folder `storage/files/<case>/<section>/`
-  (`app_media/services/storage.py::finalize_case`). The whole case therefore ends
-  up in one folder, in order. If stamping fails for a file, the raw photo is still
-  stored and the reason is logged — the process never breaks
-  (`./watermark.sh --case <DN-…>` can stamp it later).
+- There is **no temporary area** any more (v1.14): a photo is written straight
+  into the folder of its case (`app_media/services/storage.py::save_case_image`),
+  in the format it arrived in — HEIC/HEIF/DNG are stored byte-for-byte, JPEG/PNG
+  are re-saved with the stamp inside.
+- The watermark and the metadata comment are applied **at upload time**; if
+  stamping fails for a file the raw photo is still stored and the reason is
+  logged — the process never breaks (`./watermark.sh --case <…>` can stamp it
+  later). HEIC/DNG cannot be stamped by Pillow and are deliberately skipped.
 - `./watermark.sh` remains the manual twin: no arguments = photos that are not
   stamped yet, `--all`, `--case DN-…`, `--force`, `--out DIR` (fresh copies; names
   are kept and never overwritten), `--comment-only`, `--rename`, `--dry-run`.
@@ -398,7 +413,7 @@ badges; it opens the storage browser in a **new tab**.
 
 | URL | Page |
 |---|---|
-| `/media/storage/` | all content of `storage/tmp` — one link button per session folder (files, size, Jalali time, thumbnails) + every file name/image, then `storage/data` files and the final `storage/DN-…` folders |
+| `/media/storage/` | the case folders of the logged-in user under `storage/files/<تاریخ>/…` — one link button per folder (files, size, Jalali time, thumbnails) + every file name/image, then the `storage/data` files. Read-only. |
 | `/media/storage/folder/<path>/` | detail page of **one** folder: breadcrumb, its subfolders (again link buttons) and its files (name, label, size, pixel size, Jalali time, preview, نمایش/دانلود) |
 | `/media/storage/raw/<path>` | one file, inline (used for the thumbnails) |
 
@@ -460,8 +475,10 @@ link change is a one-line edit in the settings instead of four template files.
    The upload page shows the same full information panel (with «ویرایش اطلاعات»), the slot
    titles carry no counters, and the finish button is centered below everything.
 
-Images are kept in `storage/tmp/<session>/…` until «اتمام», then moved to
-`storage/<unique_number>/<section>/…` (watermark hook: `app_media/services/watermark.py`).
+Images are written straight into
+`storage/files/<تاریخ>/<کد رایانه>-<نام کاربری>/…` — a زیان‌دیده gets its own
+subfolder named after its plate (watermark hook:
+`app_media/services/watermark.py`).
 
 ## Layout
 
@@ -724,3 +741,61 @@ The native browser back button behaves like the app's back button
   through the pure-Python `arabic-reshaper` + `python-bidi` pair (installed
   via `requirements.txt`). If those packages are missing the stamp still
   renders — just unshaped — and never breaks.
+
+## Round 28 — v1.22 (consistent watermark + scannable QR page + no code on the frontend)
+
+- **The watermark is now consistent.** The stamp is built as separate transparent
+  layers (QR, logos, text) that are composited **once**, and every size is a
+  *share of the photo* (each logo 15 % of the width, the QR 10 %, the text 3.2 %
+  of the height, 2 % margin) — a 600 px thumbnail and a 12 MP photo get the exact
+  same stamp. The old absolute pixel caps (font 5–64 px) and the hand-picked
+  coordinates are gone; those were why the result looked different at different
+  resolutions. The input is normalised first (`exif_transpose` + RGBA) so phone
+  photos are never stamped sideways, and the file is saved in its **original
+  format** with DPI + ICC preserved.
+- **Config consistency.** `simple_overlay()` used to fall back to the defaults
+  while the app passed `settings.WATERMARK`, so with `WATERMARK_POSITION` set in
+  `.env` the two stamped different corners. Everything resolves through one
+  `_cfg()` now.
+- **A QR you can actually scan.** `ERROR_CORRECT_H`, a real 4-module quiet zone,
+  integer-pixel module scaling (no blurry squares) and a semi-opaque white plate
+  behind the code while the modules stay fully opaque. Verified with a real
+  decoder: it reads off the stamped photo; when a code could not possibly scan
+  (tiny photo) it is skipped and logged instead of being smeared on.
+- **The QR opens a page with everything.** The code links to the public
+  `/wm-info/` page built from the app's own address (`PUBLIC_BASE_URL` in `.env`,
+  or the address the request arrived on — so it is correct behind a proxy too).
+  The page shows **کد رایانه، شماره پرونده، نام کاربری، تاریخ و ساعت، شماره پلاک و
+  شماره بیمه نامه** (a زیان‌دیده's photos carry that party's own plate). Old
+  pre-v1.22 QR links with the long parameter names still open correctly.
+- **No codebase on the frontend.** A multi-line `{# #}` note in
+  `core/_brand_logos.html` was leaking maintainer text (settings names, paths)
+  into every page's View Source — it is a `{% comment %}` now, and the whole
+  template tree was audited for the same leak. The storage browser no longer
+  prints the absolute server path. With `DEBUG=False` you get a branded Persian
+  404/500 (no traceback); with `DEBUG=True` the Django yellow screen appears, as
+  requested. Cookies get `SameSite=Lax` in production and `ENFORCE_HTTPS=True`
+  (off by default) adds HSTS + secure cookies behind a real TLS terminator.
+- **Static caching.** In production `/static/` is served with a one-hour
+  `Cache-Control`, and the logos carry the same `?v=STATIC_VERSION` cache-buster
+  as the css/js.
+
+## Round 29 — v1.22.1 (Persian labels on the stamp; `.env` re-read verified)
+
+- **Persian labels are back on the watermark**, correctly joined and ordered:
+  every stamped value now reads «کد رایانه پرونده: …»، «شماره پرونده: …»،
+  «نام کاربری: …»، «تاریخ و ساعت: …»، «شماره پلاک: …»، «شماره بیمه نامه: …».
+  The old "labels print garbled" problem was missing letter shaping; the lines
+  now pass through `arabic-reshaper` + `python-bidi` before drawing, so the
+  Persian words are properly formed (verified visually at 1600×1200). Turn them
+  off with `WATERMARK_LABELS_ENABLED=false` in `.env` (plain values, old look).
+- **`.env` is re-read on every server run.** Verified with fresh processes:
+  editing `.env` (URL / logos / `WATERMARK_QR_ENABLED` / `WATERMARK_CUSTOM_TEXT`)
+  is picked up on the next start, and a `DANA_<KEY>` environment variable wins
+  for a single run. A *running* server keeps the values it started with — restart
+  after editing `.env`.
+- **Where the editable texts live** (owner question): the «کروکی دارم» checkbox
+  label is `templates/main/upload.html` (the `<label class="idk-check">` next to
+  the computer-code box) and the «تصاویر مقصر در سه بخش زیر بارگذاری کنید» line is
+  the `<p class="card-desc">` a few lines below the «بارگذاری تصاویر» separator in
+  the same file. Both are static HTML — edit them right there.
