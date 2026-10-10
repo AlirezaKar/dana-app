@@ -38,13 +38,14 @@ def _stage(request):
     v1.15 (owner request): the نوع بیمه page is **back** — after choosing the
     type the user goes directly to the upload page; the standalone «یافتن
     پرونده» screen is gone (the کد رایانه entry lives inside the upload page).
+
+    v1.21 — ``?timeout=1`` is handled by :func:`login` on GET only and the URL
+    is cleaned right away, so it can never swallow a POST any more.
     """
     auth = _auth(request)
     if not auth.get('username'):
         return 1
     insurance = (request.session.get('login_state') or {}).get('insurance_type')
-    if request.GET.get('timeout') == '1':
-        return 1
     if request.GET.get('stage') == '2' or not insurance:
         return 2
     return 3
@@ -70,8 +71,13 @@ def _ctx(request, stage, errors=None):
 
 @require_http_methods(['GET', 'POST'])
 def login(request):
-    # ---- «مهلت نشست» : the browser reached the end of its countdown ------ #
-    if request.GET.get('timeout') == '1':
+    # ---- «مهلت نشست» : the session ran out (browser countdown or server) ---- #
+    # v1.21 — handled on **GET only** and the query string is cleaned with a
+    # redirect. Before this, the flag was checked before the method, so the
+    # login form (which posts to the very same URL) was answered by *this*
+    # branch again: the user typed the username/password, the page simply
+    # re-rendered and the login looked broken («it just reloads the page»).
+    if request.method == 'GET' and request.GET.get('timeout') == '1':
         from django.contrib import messages
 
         from .middleware import close_session, timeout_config
@@ -89,7 +95,8 @@ def login(request):
                 'برای ادامه دوباره وارد شوید.')
         except Exception:
             pass
-        return render(request, 'account/login.html', _ctx(request, 1))
+        # a clean URL: «/» — the form action never carries «?timeout=1» again
+        return redirect('login')
 
     if request.method == 'GET':
         stage = _stage(request)

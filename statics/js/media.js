@@ -82,6 +82,7 @@
           .then(function (pair) {
             saveBtn.disabled = false;
             var data = pair[1] || {};
+            if (DANA.sessionExpired({ status: pair[0] }, data)) { DANA.gotoLogin(); return; }
             if (!data.ok) {
               DANA.toast(data.error || 'ثبت زیان‌دیده ناموفق بود', true);
               return;
@@ -120,8 +121,10 @@
         headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body: body.toString(),
       })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
+        .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+        .then(function (pair) {
+          if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+          var data = pair[1];
           if (!data || data.ok === false) {
             btn.disabled = false;
             DANA.toast((data && data.error) || 'حذف ناموفق بود', true);
@@ -177,8 +180,10 @@
           if (!confirm('این تصویر حذف شود؟')) return;
           rm.disabled = true;
           fetch('/media/remove/' + img.id + '/', { method: 'POST', headers: { 'X-CSRFToken': csrf } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
+            .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+            .then(function (pair) {
+              if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+              var data = pair[1];
               if (data && data.ok === false) {
                 rm.disabled = false;
                 DANA.toast(data.error || 'حذف تصویر ناموفق بود', true);
@@ -211,9 +216,11 @@
       fd.append('section', area.dataset.section);
       if (area.dataset.party) fd.append('party', area.dataset.party);
       fetch('/media/upload/', { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: fd })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
+        .then(function (res) { return res.json().then(function (d) { return [res, d]; }); })
+        .then(function (pair) {
           ph.remove();
+          if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+          var data = pair[1];
           if (!data.ok) { DANA.toast(data.error || 'آپلود ناموفق بود', true, 5000); return; }
           grid.appendChild(makeThumb(data.image, area));
         })
@@ -236,8 +243,10 @@
           if (!confirm('این تصویر حذف شود؟')) return;
           rm.disabled = true;
           fetch('/media/remove/' + rm.dataset.remove + '/', { method: 'POST', headers: { 'X-CSRFToken': csrf } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
+            .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+            .then(function (pair) {
+              if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+              var data = pair[1];
               if (data && data.ok === false) {
                 rm.disabled = false;
                 DANA.toast(data.error || 'حذف تصویر ناموفق بود', true);
@@ -303,8 +312,10 @@
           },
           body: body.toString(),
         })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
+          .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+          .then(function (pair) {
+            if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+            var data = pair[1];
             if (data.ok) {
               // v1.17 (owner): NO popup on success — a small toast for every
               // group (the popup belongs only to the timing-cancel error).

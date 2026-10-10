@@ -24,6 +24,17 @@
     return el ? el.value : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
   };
 
+  /* ---------- Session expiry on background requests (v1.21) ---------- */
+  /* An expired session answers HTTP 401 + JSON instead of an HTML redirect, so
+     every fetch() below can tell «the session is over» from «the server is
+     broken» and walk the user back to the login page. */
+  DANA.sessionExpired = function (response, data) {
+    return (response && response.status === 401) || !!(data && data.session_expired);
+  };
+  DANA.gotoLogin = function () {
+    window.location.href = '/?timeout=1';
+  };
+
   DANA.debounce = function (fn, wait) {
     var t;
     return function () {
@@ -437,12 +448,22 @@
     var cfg = payload || window.DANA_TIMEOUT || null;
     if (!cfg || !cfg.enabled) return;
 
-    var remaining = parseInt(cfg.remaining, 10);
     var warnAt = parseInt(cfg.warn, 10) || 15;
     var total = parseInt(cfg.total, 10) || 600;
     var overlay = null, countEl = null, timer = null, lastPing = 0;
     var lastActivity = Date.now();
     var closed = false;
+    /* v1.21 — the countdown is derived from a **deadline timestamp**, not from
+       a «-1 every tick» counter: a throttled or sleeping tab no longer drifts
+       away from the server clock (that drift is what made the popup fire long
+       after the session had really ended). */
+    var deadline = Date.now() + (parseInt(cfg.remaining, 10) || 0) * 1000;
+    var remaining = Math.round((deadline - Date.now()) / 1000);
+
+    function setRemaining(seconds) {
+      deadline = Date.now() + (parseInt(seconds, 10) || 0) * 1000;
+      remaining = Math.round((deadline - Date.now()) / 1000);
+    }
 
     function fmt(seconds) {
       seconds = Math.max(0, seconds);
@@ -482,14 +503,38 @@
       if (now - lastPing < 1500) return;          // keep double clicks cheap
       lastPing = now;
       fetch(cfg.pingUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          if (r.status === 401) { leave(0); return null; }   // session already closed
+          return r.json();
+        })
         .then(function (data) {
-          if (!data || data.ok === false) { leave(0); return; }
-          remaining = parseInt(data.remaining, 10);
+          if (!data) return;
+          if (data.ok === false) { leave(0); return; }
+          setRemaining(data.remaining);
           hide();
           paint();
         })
         .catch(function () { /* offline: the countdown keeps running */ });
+    }
+
+    /* Coming back from a hidden tab / a suspended laptop: the local clock says
+       nothing trustworthy, so ask the server how much time is really left —
+       and only log out when the server says the session is gone. */
+    function resync() {
+      if (closed) return;
+      lastPing = 0;
+      fetch(cfg.pingUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) {
+          if (r.status === 401) { leave(0); return null; }
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data) return;
+          if (data.ok === false) { leave(0); return; }
+          setRemaining(data.remaining);
+          paint();
+        })
+        .catch(function () { /* offline: the local countdown keeps running */ });
     }
 
     function leave(grace) {
@@ -524,10 +569,17 @@
     build();
     paint();
     timer = setInterval(function () {
-      remaining -= 1;
+      /* a hidden tab is not counted down: the user is not here, and the server
+         clock is the authority anyway (resync() settles it on their return). */
+      if (document.hidden) return;
+      remaining = Math.round((deadline - Date.now()) / 1000);
       paint();
       if (remaining <= 0) leave();
     }, 1000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) resync();
+    });
+    window.addEventListener('focus', resync);
     ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(function (ev) {
       document.addEventListener(ev, activity, { passive: true });
     });

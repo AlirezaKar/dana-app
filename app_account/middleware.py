@@ -146,11 +146,23 @@ def close_session(request, seconds=None, mode=None, log=True):
     return username
 
 
+def is_ajax(request):
+    """True for the app's own background requests (fetch/XHR)."""
+    return (request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            or (request.headers.get('Accept') or '').startswith('application/json'))
+
+
 class SessionTimeoutMiddleware:
     """Close the app session when its time is up (spec.md v1.12).
 
     The AJAX ping (``/session/ping/``) is a normal request, so it refreshes the
     deadline in ``'idle'`` mode — that is what the «ادامهٔ کار» button uses.
+
+    v1.21 — an expired **background** request answers with JSON (HTTP 401)
+    instead of a redirect: a fetch() call cannot follow a redirect into an HTML
+    login page and used to die with «خطا در ارتباط با سرور» while the browser
+    stayed on a dead page. The script now sees the 401 and walks the user back
+    to the login page itself.
     """
 
     def __init__(self, get_response):
@@ -165,6 +177,13 @@ class SessionTimeoutMiddleware:
         except Exception:              # never break a request because of the timer
             expired = False
         if expired:
+            if is_ajax(request):
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'ok': False, 'session_expired': True, 'remaining': 0,
+                    'error': 'مهلت نشست شما به پایان رسید.',
+                    'login_url': '/?timeout=1',
+                }, status=401)
             return redirect('/?timeout=1')
         return self.get_response(request)
 

@@ -44,14 +44,14 @@
     {% if username %}
       <p class="card-desc">شما با حساب <b class="mono">{{ username }}</b>
         ({{ user_type_label }}) وارد شده‌اید. برای شروع فرایند بیمه ادامه دهید یا «خروج» بزنید.</p>
-      <form method="post" novalidate>
+      <form method="post" action="{% url 'login' %}" novalidate>
         {% csrf_token %}
         <input type="hidden" name="stage" value="1">
         <button type="submit" class="btn btn-primary btn-large">ادامه به فرایند بیمه</button>
         <a href="{% url 'logout' %}" class="btn btn-secondary btn-large back-btn">خروج از حساب</a>
       </form>
     {% else %}
-      <form method="post" novalidate id="auth-form">
+      <form method="post" action="{% url 'login' %}" novalidate id="auth-form">
         {% csrf_token %}
         <input type="hidden" name="stage" value="1">
 
@@ -74,7 +74,7 @@
 
   {# ---------------- page 2: insurance type (v1.15 — back) ---------------- #}
   {% else %}
-    <form method="post" novalidate>
+    <form method="post" action="{% url 'login' %}" novalidate>
       {% csrf_token %}
       <input type="hidden" name="stage" value="2">
       <div class="option-grid-2">
