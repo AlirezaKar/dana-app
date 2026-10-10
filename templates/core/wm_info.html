@@ -55,22 +55,12 @@
       </div>
     </div>
     <table>
+      {% for f in fields %}
       <tr>
-        <th>کد رایانه</th>
-        <td>{% if code %}{{ code }}{% else %}<span class="empty">—</span>{% endif %}</td>
+        <th>{{ f.label }}</th>
+        <td>{% if f.value %}{{ f.value }}{% else %}<span class="empty">—</span>{% endif %}</td>
       </tr>
-      <tr>
-        <th>شماره پرونده</th>
-        <td>{% if case_number %}{{ case_number }}{% else %}<span class="empty">—</span>{% endif %}</td>
-      </tr>
-      <tr>
-        <th>نام کاربری</th>
-        <td>{% if username %}{{ username }}{% else %}<span class="empty">—</span>{% endif %}</td>
-      </tr>
-      <tr>
-        <th>تاریخ و ساعت</th>
-        <td>{% if at %}{{ at }}{% else %}<span class="empty">—</span>{% endif %}</td>
-      </tr>
+      {% endfor %}
     </table>
     <div class="wm-foot">اطلاعات این صفحه از کد QR واترمارک تصویر خوانده شده است.</div>
   </div>

@@ -241,7 +241,11 @@ for path, old in before.items():
     if path.exists():
         img = PILImage.open(path).convert('L')
         w, h = img.size
-        band = img.crop((w // 2, h - h // 3, w, h))       # bottom-right band
+        # look at the third of the photo where the stamp actually lives
+        where = (wm.config().get('POSITION') or 'bottom-right').lower()
+        x0 = 0 if 'left' in where else w - w // 2
+        y0 = 0 if 'top' in where else h - h // 3
+        band = img.crop((x0, y0, x0 + w // 2, y0 + h // 3))
         dark = sum(1 for v in band.getdata() if v < 70)
         if dark > 150:
             inked += 1
@@ -271,21 +275,27 @@ check('overlay string (CLI) renders', wm.simple_overlay((1280, 960), '22241712')
 check('overlay partial dict renders', wm.simple_overlay((1280, 960), {'code': 'X1'}).getbbox() is not None)
 check('overlay small image renders', wm.simple_overlay((400, 300), info).getbbox() is not None)
 
-# v1.19 — proportional scaling: small photos get a small stamp
-for size, max_share in (((230, 110), 0.45), ((320, 240), 0.45), ((4000, 3000), 0.25)):
+# v1.22 — the stamp is the *same share* of the photo at every resolution
+# (that is what "consistent" means): the height stays inside the configured
+# band and never wanders far between a tiny and a huge photo.
+shares = {}
+for size in ((230, 110), (320, 240), (1280, 960), (4000, 3000)):
     bb = wm.simple_overlay(size, info).getbbox()
-    share = (bb[3] - bb[1]) / size[1]
-    check(f'stamp ≤ {int(max_share*100)}% of height on {size[0]}x{size[1]} '
-          f'({share*100:.0f}%)', share <= max_share)
+    shares[size] = (bb[3] - bb[1]) / size[1]
+for size, share in shares.items():
+    check(f'stamp height share sane on {size[0]}x{size[1]} ({share*100:.0f}%)',
+          0.2 <= share <= 0.42, f'{share:.2f}')
+check('stamp proportion is consistent across resolutions',
+      max(shares.values()) - min(shares.values()) <= 0.08, str(shares))
 
 # v1.19 — QR only when scannable: record every _qr_image call
 qr_calls = []
 orig_qr_probe = wm._qr_image
 
 
-def probe_qr(url, side):
+def probe_qr(url, side, cfg=None):
     qr_calls.append(side)
-    return orig_qr_probe(url, side)
+    return orig_qr_probe(url, side, cfg)
 
 
 wm._qr_image = probe_qr
@@ -319,22 +329,40 @@ def dark_in(img, box):
 
 # the block is anchored bottom-right; with a QR its height equals the QR side
 # and the QR is the block's leftmost element → the left square of the ink bbox
+def white_in(img, box):
+    canvas = PILImage.new('RGBA', img.size, (0, 0, 0, 255))
+    canvas.alpha_composite(img)
+    reg = canvas.convert('L').crop(box)
+    return sum(1 for v in reg.getdata() if v > 200)
+
+
 bbox = qr_on.getbbox()
 side = bbox[3] - bbox[1]
 qr_box = (bbox[0], bbox[1], bbox[0] + side, bbox[3])
-check('QR pixels present when base_url set', dark_in(qr_on, qr_box) > 400,
-      f'dark={dark_in(qr_on, qr_box)} box={qr_box}')
-check('no QR block without base_url', dark_in(qr_off, qr_box) < 50,
-      f'dark={dark_in(qr_off, qr_box)} box={qr_box}')
+on_white = white_in(qr_on, qr_box)
+off_white = white_in(qr_off, qr_box)
+check('QR (white backing + dark modules) present when base_url set',
+      on_white > 400 and dark_in(qr_on, qr_box) > 400,
+      f'white={on_white} dark={dark_in(qr_on, qr_box)} box={qr_box}')
+# the backing is a *filled* white plate: without base_url the same square holds
+# only thin text strokes, i.e. far less white.
+check('no QR block without base_url', off_white < on_white / 3,
+      f'on_white={on_white} off_white={off_white}')
 url = wm._wm_info_url(info)
 check('_wm_info_url → wm_info route', '/wm-info/' in url and reverse('wm_info') == '/wm-info/')
 check('_wm_info_url carries all params',
-      all(k in url for k in ('code=', 'case=', 'user=', 'at=')), url)
+      all(k in url for k in ('c=', 'f=', 'u=', 't=')), url)
 check('_wm_info_url empty without base_url', wm._wm_info_url({'code': 'x'}) == '')
 check('_wm_info_url keeps ASCII digits (compact QR)',
       '%D9' not in url and '%DB' not in url, url)
 img_qr = wm._qr_image(url, 120)
-check('_qr_image builds a QR square', img_qr is not None and img_qr.size == (120, 120))
+check('_qr_image builds a crisp QR square (≥ requested side)',
+      img_qr is not None and img_qr.width == img_qr.height >= 120,
+      str(getattr(img_qr, 'size', None)))
+qr_arr = list(img_qr.getdata()) if img_qr is not None else []
+check('_qr_image uses a white backing + black modules',
+      any(px[3] > 200 and px[0] < 60 for px in qr_arr) and
+      any(px[3] > 150 and px[0] > 200 for px in qr_arr))
 
 # v1.20 — custom text + .env toggles
 cfg_custom = {'CUSTOM_TEXT': 'HELLO 123', 'CUSTOM_TEXT_ENABLED': True}
@@ -427,14 +455,18 @@ finally:
     wm._wm_info_url = orig_url
 
 print('== J. /wm-info/ page ==')
-r = anon.get('/wm-info/?code=22241712&case=77777777&user=palireza&at=1405-07-09%2012:34')
-check('wm-info 200', r.status_code == 200)
+r = anon.get('/wm-info/?c=22241712&f=77777777&u=palireza&t=1405-07-09_12:34')
+check('wm-info 200 (short params, new QR)', r.status_code == 200)
 body = r.content.decode()
 for needle in ('22241712', '77777777', 'palireza', '1405-07-09', 'کد رایانه',
                'شماره پرونده', 'نام کاربری', 'تاریخ و ساعت',
                'dana-logo.png', 'hef.co.ir.png'):
     check(f'wm-info shows «{needle}»', needle in body)
 check('wm-info without params 200', anon.get('/wm-info/').status_code == 200)
+# photos stamped before v1.22 carry the long parameter names — still readable
+old = anon.get('/wm-info/?code=22241712&case=77777777&user=palireza&at=1405-07-09%2012:34')
+check('wm-info still reads pre-v1.22 long params',
+      '22241712' in old.content.decode() and 'palireza' in old.content.decode())
 
 print(f'\n== SUMMARY: {PASS} passed, {FAIL} failed ==')
 sys.exit(1 if FAIL else 0)

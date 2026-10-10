@@ -221,4 +221,13 @@ WATERMARK = {
     'CUSTOM_TEXT': env.get('WATERMARK_CUSTOM_TEXT', ''),
     'CUSTOM_TEXT_ENABLED': env.bool('WATERMARK_CUSTOM_TEXT_ENABLED', True),
     'QR_ENABLED': env.bool('WATERMARK_QR_ENABLED', True),
+    # v1.22 — the stamp is assembled from layers and every size is a *share* of
+    # the photo, so the same stamp looks identical at any resolution. All
+    # proportions are tunable here (or from `.env`); see `.env.sample`.
+    'LOGO_WIDTH_FRACTION': env.float('WATERMARK_LOGO_WIDTH_FRACTION', 0.15),
+    'QR_SIZE_FRACTION': env.float('WATERMARK_QR_SIZE_FRACTION', 0.10),
+    'FONT_HEIGHT_FRACTION': env.float('WATERMARK_FONT_HEIGHT_FRACTION', 0.032),
+    'MARGIN_FRACTION': env.float('WATERMARK_MARGIN_FRACTION', 0.02),
+    'MAX_HEIGHT_FRACTION': env.float('WATERMARK_MAX_HEIGHT_FRACTION', 0.38),
+    'QR_MIN_MODULE_PX': env.int('WATERMARK_QR_MIN_MODULE_PX', 3),
 }

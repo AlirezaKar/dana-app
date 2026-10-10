@@ -561,8 +561,9 @@ def finish(request):
     watermarked = 0
     try:
         from app_media.services import watermark as wm
+        from app_core.utils.site import absolute_base_url
         watermarked = wm.run_simple_for_submission(
-            submission, base_url=request.build_absolute_uri('/'))
+            submission, base_url=absolute_base_url(request))
     except Exception:                       # never block the finalize step
         watermarked = 0
 
