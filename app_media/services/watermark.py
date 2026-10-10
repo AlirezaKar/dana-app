@@ -258,11 +258,14 @@ class WatermarkInfo:
             plate = f'{number}-{serial}' if (number and serial) else (number or serial)
             policy = ((getattr(record, 'policy_number', '') if body
                        else getattr(record, 'atfault_policy_number', '') or '').strip())
-        plate = plate or getattr(submission, 'plate_value', '') \
-            or getattr(submission, 'entered_plate_number', '') or ''
+        plate = plate or getattr(submission, 'plate_value', '') or ''
         if party is not None:
-            plate = (getattr(party, 'plate_number', '') or '').strip() or plate
-        policy = policy or getattr(submission, 'entered_policy_number', '')
+            # v1.21 — a زیان‌دیده keeps its plate the way the tables do: the
+            # main part + the «ایران ##» serial, shown here as «94س225-63».
+            number = (getattr(party, 'plate_number', '') or '').strip()
+            serial = (getattr(party, 'plate_serial', '') or '').strip()
+            if number:
+                plate = f'{number}-{serial}' if serial else number
         return cls(
             username=username or getattr(submission, 'auth_username', ''),
             computer_code=(getattr(submission, 'entered_file_code', '')

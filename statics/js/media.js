@@ -55,6 +55,15 @@
       cancelBtn.addEventListener('click', function () { closeVictimForm(); });
     }
 
+    /* «کد ملی» takes digits only — Persian digits are converted as you type */
+    var ncInput = document.getElementById('vf_national_code');
+    if (ncInput) {
+      ncInput.addEventListener('input', function () {
+        var cleaned = DANA.toEn(ncInput.value).replace(/\D/g, '').slice(0, 10);
+        if (cleaned !== ncInput.value) ncInput.value = cleaned;
+      });
+    }
+
     var saveBtn = document.getElementById('victim-save-btn');
     if (saveBtn) {
       saveBtn.addEventListener('click', function () {
@@ -63,6 +72,10 @@
           DANA.toast('«شماره پلاک» زیان‌دیده را کامل وارد کنید (۲ رقم، حرف، ۳ رقم).', true);
           return;
         }
+        var ncError = DANA.nationalCodeError
+          ? DANA.nationalCodeError((document.getElementById('vf_national_code') || {}).value)
+          : '';
+        if (ncError) { DANA.toast(ncError, true, 5000); return; }
         saveBtn.disabled = true;
         fetch('/victim/add/', {
           method: 'POST',
@@ -74,8 +87,10 @@
           body: JSON.stringify({
             first_name: ((document.getElementById('vf_first_name') || {}).value || '').trim(),
             last_name: ((document.getElementById('vf_last_name') || {}).value || '').trim(),
-            national_code: ((document.getElementById('vf_national_code') || {}).value || '').trim(),
-            plate_number: composed.value,
+            national_code: DANA.toEn(((document.getElementById('vf_national_code') || {}).value || '')).trim(),
+            // v1.21 — the «ایران ##» part travels (and is stored) on its own
+            plate_number: composed.plate,
+            plate_serial: composed.serial,
           }),
         })
           .then(function (r) { return r.json().then(function (d) { return [r.status, d]; }); })

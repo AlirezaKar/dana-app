@@ -23,7 +23,8 @@ from django.views.decorators.http import require_http_methods
 
 from app_account.activity import log_activity
 from app_core.constants import INSURANCE_KEYS, INSURANCE_LABELS
-from app_core.utils.digits import normalize_code, to_en
+from app_core.utils.digits import (national_code_error, normalize_code,
+                                   normalize_national_code, to_en)
 from app_core.utils.jalali import today_jalali_str
 from app_media.constants import (GROUPS, GROUP_BY_ID, MULTI_PHOTO_SECTIONS,
                                  SECTION_MAX, SECTION_MIN, TITLE_BY_KEY)
@@ -369,10 +370,8 @@ def resolve_case(request):
         submission.record_third = record
         submission.record = None
     submission.entered_file_code = file_code
-    submission.entered_national_code = ''
-    submission.entered_vin = ''
-    submission.entered_policy_number = ''
-    submission.entered_plate_number = ''
+    # v1.21 — nothing else is copied out of the Excel tables: the record
+    # reference (record / record_third) is the source of every other value.
     submission.plate_changed = plate_changed
     submission.plate_value = plate_value if plate_changed else ''
     submission.plate_serial = plate_serial if plate_changed else ''
@@ -422,20 +421,37 @@ def add_victim(request):
     def g(key):
         return (data.get(key, '') or '').strip()
 
-    plate = g('plate_number')
+    # ---- plate: the «ایران ##» part is stored on its own (like the tables) -- #
+    plate = to_en(g('plate_number'))
+    plate_serial = to_en(g('plate_serial'))
+    if not plate_serial and '-' in plate:      # tolerate the combined «94س225-63»
+        plate, _, plate_serial = plate.partition('-')
+    plate, plate_serial = plate.strip(), plate_serial.strip()
     if not plate:
         return JsonResponse({'ok': False, 'error': '«شماره پلاک» زیان‌دیده الزامی است.'}, status=400)
+    if len(plate) > 32:
+        return JsonResponse({'ok': False, 'error': '«شماره پلاک» معتبر نیست.'}, status=400)
+    if plate_serial and not plate_serial.isdigit():
+        return JsonResponse({'ok': False,
+                             'error': 'بخش «ایران» شماره پلاک باید فقط عدد باشد.'}, status=400)
     if sub.victims.filter(plate_number=plate).exists():
         return JsonResponse({'ok': False,
                              'error': 'زیان‌دیده‌ای با این شماره پلاک قبلاً ثبت شده است.'},
                             status=400)
 
+    # ---- «کد ملی»: exactly ten digits (optional, but never anything else) -- #
+    national_code = normalize_national_code(g('national_code'))
+    error = national_code_error(national_code)
+    if error:
+        return JsonResponse({'ok': False, 'error': error}, status=400)
+
     party = DamagedParty.objects.create(
         submission=sub,
         first_name=g('first_name'),
         last_name=g('last_name'),
-        national_code=g('national_code'),
+        national_code=national_code,
         plate_number=plate,
+        plate_serial=plate_serial,
     )
     folder = storage.ensure_dir(storage.party_dir(sub, party))
     log_activity('case_edit', request=request, method='POST',
@@ -448,7 +464,8 @@ def add_victim(request):
         'car_max_span': dev_settings.get(request, 'CAR_IMAGE_MAX_SPAN_MINUTES'),
     }, request=request)
     return JsonResponse({'ok': True, 'victim': {
-        'id': party.pk, 'plate': party.plate_number, 'label': party.label,
+        'id': party.pk, 'plate': party.plate_number, 'plate_serial': party.plate_serial,
+        'plate_full': party.plate_full, 'label': party.label,
         'full_name': party.full_name, 'national_code': party.national_code,
         'folder': str(folder),
     }, 'html': html})

@@ -35,3 +35,33 @@ def clean_number(value):
         .replace('\u200f', '')
         .strip()
     )
+
+
+# --------------------------------------------------------------------------- #
+# v1.21 — «کد ملی» (national code) rule
+# --------------------------------------------------------------------------- #
+#: a national code is exactly ten digits — nothing else
+NATIONAL_CODE_LENGTH = 10
+NATIONAL_CODE_ERROR = 'کد ملی باید دقیقاً ۱۰ رقم و فقط عدد باشد.'
+
+
+def normalize_national_code(value):
+    """Persian/Arabic digits → ASCII, dashes/spaces/ZWNJ removed."""
+    s = to_en(value or '')
+    for ch in ('-', ' ', '\u200c', '\u200f', '\u00a0'):
+        s = s.replace(ch, '')
+    return s.strip()
+
+
+def national_code_error(value):
+    """``''`` when the value is a valid کد ملی (or empty), else the error text.
+
+    Rule (owner request): **exactly ten characters, all of them digits**. An
+    empty value is allowed — the field stays optional.
+    """
+    code = normalize_national_code(value)
+    if not code:
+        return ''
+    if len(code) != NATIONAL_CODE_LENGTH or not code.isdigit():
+        return NATIONAL_CODE_ERROR
+    return ''

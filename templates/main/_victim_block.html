@@ -10,6 +10,10 @@
     <div class="info-row"><span class="info-label">نام و نام خانوادگی</span><span class="info-value">{{ victim.full_name|default:'—' }}</span></div>
     <div class="info-row"><span class="info-label">کد ملی</span><span class="info-value mono" dir="ltr">{{ victim.national_code|default:'—' }}</span></div>
     <div class="info-row"><span class="info-label">شماره پلاک</span><span class="info-value mono" dir="ltr">{{ victim.plate_number }}</span></div>
+    {# v1.21 — the «ایران ##» part is stored on its own, and shown on its own #}
+    {% if victim.plate_serial %}
+    <div class="info-row"><span class="info-label">ایران</span><span class="info-value mono" dir="ltr">{{ victim.plate_serial }}</span></div>
+    {% endif %}
     <div class="info-row"><span class="info-label">پوشهٔ ذخیره‌سازی</span><span class="info-value mono" dir="ltr">storage/files/…/{{ victim.plate_number }}/</span></div>
   </div>
 

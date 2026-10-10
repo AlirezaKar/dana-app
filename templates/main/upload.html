@@ -185,8 +185,9 @@
         </div>
         <div class="form-group mt-0">
           <label for="vf_national_code">کد ملی</label>
+          {# v1.21 — «کد ملی»: exactly ten digits (server + client enforce it) #}
           <input type="text" id="vf_national_code" class="mono" dir="ltr" inputmode="numeric"
-                 placeholder="(اختیاری)">
+                 maxlength="10" autocomplete="off" placeholder="اختیاری — ۱۰ رقم">
         </div>
         <div class="form-group mt-0" style="grid-column:1/-1">
           <label class="field-label">شماره پلاک <span class="required-dot">*</span></label>

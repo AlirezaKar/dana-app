@@ -11,6 +11,21 @@
   DANA.toFa = function (value) {
     return String(value).replace(/\d/g, function (d) { return FA[+d]; });
   };
+  /* Persian / Arabic-Indic digits → ASCII (v1.21 — «کد ملی» validation) */
+  DANA.toEn = function (value) {
+    return String(value == null ? '' : value)
+      .replace(/[\u06F0-\u06F9]/g, function (c) { return String(c.charCodeAt(0) - 0x06F0); })
+      .replace(/[\u0660-\u0669]/g, function (c) { return String(c.charCodeAt(0) - 0x0660); });
+  };
+  /* «کد ملی» — exactly ten digits; '' means «not filled» (the field is optional) */
+  DANA.nationalCodeError = function (value) {
+    var code = DANA.toEn(value).replace(/[\s\-\u200c]/g, '');
+    if (!code) return '';
+    if (code.length !== 10 || !/^\d+$/.test(code)) {
+      return 'کد ملی باید دقیقاً ۱۰ رقم و فقط عدد باشد.';
+    }
+    return '';
+  };
 
   DANA.formatSize = function (bytes) {
     bytes = +bytes || 0;

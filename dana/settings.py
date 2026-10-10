@@ -67,6 +67,16 @@ MIDDLEWARE = [
     'app_account.middleware.UserActivityMiddleware',
 ]
 
+# v1.21 — a production server (``manage.py serve`` → waitress) does not serve
+# ``/static/`` the way ``runserver`` does; WhiteNoise serves it straight from
+# STATIC_ROOT. Guarded, so an install without the package still starts.
+try:
+    import whitenoise  # noqa: F401
+except ImportError:                          # pragma: no cover
+    pass
+else:
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+
 ROOT_URLCONF = 'dana.urls'
 
 TEMPLATES = [
@@ -131,6 +141,14 @@ STATIC_VERSION = env.get('STATIC_VERSION', '1.17')
 # v1.18 — absolute base URL for the watermark QR target when the request cannot
 # provide one (management commands). Empty → the QR is skipped, never broken.
 PUBLIC_BASE_URL = env.get('PUBLIC_BASE_URL', '')
+
+# v1.21 — the production server started by ``python manage.py serve``
+# (waitress — a real WSGI server, so no «development server» warning).
+SERVER = {
+    'HOST': env.get('SERVER_HOST', '0.0.0.0'),
+    'PORT': env.int('SERVER_PORT', 8000),
+    'THREADS': env.int('SERVER_THREADS', 8),
+}
 
 # Root directory for uploaded case images (final + temporary), located in the
 # project root as required by the specification.
