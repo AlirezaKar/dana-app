@@ -513,7 +513,9 @@ input.field-locked, .cb-input.field-locked {
 .plate-ir { font-size: 9px; font-weight: 700; line-height: 1.25; text-align: center; letter-spacing: 0.4px; }
 .plate-bolt { width: 5px; height: 5px; border-radius: 50%; background: #c9ced6; }
 .plate-main { flex: 1; display: flex; align-items: center; gap: 6px; padding: 10px 0 10px 10px; }
-.plate-main { padding-top: 24px; }   /* room for «ایران» above the last two digits */
+/* v1.21 — room for «ایران» above the last two digits **and** breathing space on
+   the right: the «ایران ##» box used to touch the plate's border. */
+.plate-main { padding: 24px 14px 10px 10px; }
 .plate-section { display: flex; gap: 6px; }
 .plate-digit {
   width: 42px; height: 50px;
@@ -551,17 +553,73 @@ input.field-locked, .cb-input.field-locked {
   line-height: 1;
 }
 .plate-iran .plate-digit { width: 34px; height: 50px; font-size: 1.05rem; }
+
+/* ---- v1.21 — the same plate, read-only (an info box, the done page) ---- */
+.plate-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #cfd8e0;
+  border-radius: 8px;
+  background: #f6f8fa;
+  color: #1d2a33;
+  font-weight: 700;
+  font-family: Consolas, monospace;
+}
+.plate-digit-static { width: 42px; height: 50px; font-size: 1.25rem; }
+.plate-letter-static { min-width: 110px; height: 50px; font-size: 1.05rem; }
+.plate-iran .plate-digit-static { width: 34px; height: 50px; font-size: 1.05rem; }
+/* the read-only plate is a *display* of a value: a bit smaller than the form */
+.plate-readonly { transform-origin: right center; }
+.plate-readonly .plate-digit-static { width: 34px; height: 40px; font-size: 1rem; }
+.plate-readonly .plate-letter-static { min-width: 84px; height: 40px; font-size: 0.95rem; }
+.plate-readonly .plate-iran .plate-digit-static { width: 28px; height: 40px; font-size: 0.95rem; }
+.plate-readonly .plate-main { padding: 20px 12px 8px 8px; gap: 5px; }
+.plate-readonly .plate-blue { width: 52px; }
+.plate-readonly .plate-iran-label { font-size: 10px; top: -16px; }
+/* the plate inside an info row: on its own line, right-aligned like the rest */
+.info-row-plate { display: block; }
+.info-row-plate .info-label { display: block; margin-bottom: 6px; }
+.info-row-plate .info-value { display: block; }
+.info-row-plate .plate-wrapper { display: flex; justify-content: flex-start; }
+.info-row-plate .plate { margin-left: 0; }
+
 @media (max-width: 560px) {
   .plate { border-width: 2px; border-radius: 10px; }
   .plate-blue { width: 44px; }
   .plate-ir { font-size: 7px; }
-  .plate-main { gap: 4px; padding: 8px 0 8px 8px; }
+  .plate-main { gap: 4px; padding: 20px 10px 8px 8px; }
   .plate-digit { width: 32px; height: 42px; font-size: 1rem; }
   .plate-letter { min-width: 76px; height: 42px; font-size: 0.9rem; }
   .plate-iran { padding-left: 6px; }
-  .plate-main { padding-top: 20px; }
   .plate-iran-label { font-size: 9px; top: -16px; }
   .plate-iran .plate-digit { width: 28px; height: 42px; }
+  .plate-digit-static { width: 32px; height: 42px; font-size: 1rem; }
+  .plate-letter-static { min-width: 76px; height: 42px; font-size: 0.9rem; }
+  .plate-iran .plate-digit-static { width: 28px; height: 42px; }
+}
+/* v1.21 — on a phone the whole plate (including «ایران ##») must stay visible:
+   shrink one step further and, if the screen is still too narrow, let the
+   wrapper scroll instead of cutting the last box off. */
+@media (max-width: 430px) {
+  .plate-wrapper { overflow-x: auto; padding-bottom: 4px; }
+  .plate { margin-left: 0; }
+  .plate-blue { width: 34px; padding: 6px 2px; gap: 4px; }
+  .plate-flag { width: 26px; height: 17px; }
+  .plate-ir { font-size: 6px; letter-spacing: 0; }
+  .plate-main { gap: 3px; padding: 16px 7px 7px 6px; }
+  .plate-digit { width: 26px; height: 38px; font-size: 0.9rem; border-radius: 6px; }
+  .plate-letter { min-width: 52px; height: 38px; font-size: 0.8rem; }
+  .plate-iran { padding-left: 5px; margin-left: 4px; }
+  .plate-iran .plate-digit { width: 24px; height: 38px; font-size: 0.85rem; }
+  .plate-iran-label { font-size: 8px; top: -13px; }
+  .plate-digit-static { width: 26px; height: 38px; font-size: 0.9rem; }
+  .plate-letter-static { min-width: 52px; height: 38px; font-size: 0.8rem; }
+  .plate-iran .plate-digit-static { width: 24px; height: 38px; }
+  .plate-readonly .plate-digit-static,
+  .plate-readonly .plate-iran .plate-digit-static { width: 26px; height: 36px; font-size: 0.85rem; }
+  .plate-readonly .plate-letter-static { min-width: 52px; height: 36px; font-size: 0.8rem; }
+  .plate-readonly .plate-main { padding: 15px 7px 7px 6px; }
 }
 
 /* ---------- 14. Info box (summary) ---------- */

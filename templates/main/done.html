@@ -37,7 +37,12 @@
     <h3 class="done-title">اطلاعات ثبت پرونده</h3>
     <div class="info-box" style="display:block">
       <div class="info-row"><span class="info-label">نام و نام خانوادگی</span><span class="info-value">{{ case.effective_name|default:'—' }}</span></div>
-      <div class="info-row"><span class="info-label">شماره پلاک</span><span class="info-value mono" dir="ltr">{{ case.effective_plate|default:'—' }}</span></div>
+      {# v1.21 — the plate the way the DB keeps it: main part + «ایران ##» in #}
+      {# their own boxes (the one shared plate component, read-only).         #}
+      <div class="info-row info-row-plate">
+        <span class="info-label">شماره پلاک</span>
+        <span class="info-value">{% include 'main/_plate.html' with slots=case.plate_slots readonly=True %}</span>
+      </div>
       <div class="info-row"><span class="info-label">کد رایانه پرونده</span><span class="info-value mono">{{ case.computer_code|default:'—' }}</span></div>
       {% if case.any_record %}
       <div class="info-row"><span class="info-label">شماره پرونده</span><span class="info-value">{{ case.any_record.case_number }}</span></div>
@@ -46,7 +51,6 @@
       <div class="info-row"><span class="info-label">نوع کاربری</span><span class="info-value">{{ case.user_type_label }}{% if case.auth_username %} — <span class="mono">{{ case.auth_username }}</span>{% endif %}</span></div>
       <div class="info-row"><span class="info-label">شناسهٔ یافت‌شده با</span><span class="info-value">{{ matched_by_label|default:'—' }}</span></div>
       <div class="info-row"><span class="info-label">تاریخ ثبت</span><span class="info-value">{{ case.finished_at|jalali_datetime }}</span></div>
-      <div class="info-row"><span class="info-label">پوشهٔ ذخیره‌سازی</span><span class="info-value mono" dir="ltr">{{ folder_rel }}/</span></div>
       <div class="info-row"><span class="info-label">تعداد تصاویر</span><span class="info-value">{{ image_total }} تصویر</span></div>
     </div>
   </div>

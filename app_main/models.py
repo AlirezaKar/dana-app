@@ -118,6 +118,19 @@ class CaseSubmission(models.Model):
         """Plate as stored in the Excel files (e.g. 94س225)."""
         return self.plate_value or self.record_plate
 
+    def effective_plate_serial(self):
+        """The «ایران ##» part of :meth:`effective_plate` (its own column)."""
+        if self.plate_value:
+            return self.plate_serial
+        r = self.any_record
+        return getattr(r, 'plate_serial', '') if r else ''
+
+    @property
+    def plate_slots(self):
+        """The plate as the eight boxes of ``main/_plate.html`` (v1.21)."""
+        from app_core.utils.plate import plate_slots
+        return plate_slots(self.effective_plate(), self.effective_plate_serial())
+
     def effective_name(self):
         r = self.any_record
         return (getattr(r, 'driver_name', '') or getattr(r, 'atfault_driver', '')) if r else ''
@@ -188,6 +201,12 @@ class DamagedParty(models.Model):
     @property
     def full_name(self):
         return f'{self.first_name} {self.last_name}'.strip()
+
+    @property
+    def plate_slots(self):
+        """The plate as the eight boxes of ``main/_plate.html`` (v1.21)."""
+        from app_core.utils.plate import plate_slots
+        return plate_slots(self.plate_number, self.plate_serial)
 
     @property
     def plate_full(self):

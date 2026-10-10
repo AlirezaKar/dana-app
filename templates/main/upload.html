@@ -83,42 +83,8 @@
         <div id="plate-branch" class="hidden">
           <div class="form-group">
             <label class="field-label">شماره پلاک جدید</label>
-            <div class="plate-wrapper" dir="ltr">
-              <div class="plate">
-                <div class="plate-blue">
-                  <div class="plate-flag"><span class="f-green"></span><span class="f-white"></span><span class="f-red"></span></div>
-                  <div class="plate-ir">I.R.<br>IRAN</div>
-                  <div class="plate-bolt"></div>
-                  <div class="plate-bolt"></div>
-                </div>
-                <div class="plate-main">
-                  <div class="plate-section">
-                    <input class="plate-digit" name="plate_d1" value="{{ plate_slots.plate_d1 }}" inputmode="numeric" maxlength="1">
-                    <input class="plate-digit" name="plate_d2" value="{{ plate_slots.plate_d2 }}" inputmode="numeric" maxlength="1">
-                  </div>
-                  <div class="plate-section">
-                    <select class="plate-letter" name="plate_letter">
-                      <option value="">— حرف —</option>
-                      {% for l in 'ابپتجچحخدذرزسشصعغفقکگلمنوهی' %}
-                      <option value="{{ l }}" {% if plate_slots.plate_letter == l %}selected{% endif %}>{{ l }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  <div class="plate-section">
-                    <input class="plate-digit" name="plate_d3" value="{{ plate_slots.plate_d3 }}" inputmode="numeric" maxlength="1">
-                    <input class="plate-digit" name="plate_d4" value="{{ plate_slots.plate_d4 }}" inputmode="numeric" maxlength="1">
-                    <input class="plate-digit" name="plate_d5" value="{{ plate_slots.plate_d5 }}" inputmode="numeric" maxlength="1">
-                  </div>
-                  <div class="plate-iran">
-                    <span class="plate-iran-label">ایران</span>
-                    <div class="plate-section">
-                      <input class="plate-digit" name="plate_ir1" value="{{ plate_slots.plate_ir1 }}" inputmode="numeric" maxlength="1">
-                      <input class="plate-digit" name="plate_ir2" value="{{ plate_slots.plate_ir2 }}" inputmode="numeric" maxlength="1">
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {# v1.21 — the plate lives in ONE template: main/_plate.html #}
+            {% include 'main/_plate.html' with prefix='plate_' slots=plate_slots %}
           </div>
         </div>
       </div>
@@ -191,42 +157,8 @@
         </div>
         <div class="form-group mt-0" style="grid-column:1/-1">
           <label class="field-label">شماره پلاک <span class="required-dot">*</span></label>
-          <div class="plate-wrapper" dir="ltr">
-            <div class="plate" id="vf-plate">
-              <div class="plate-blue">
-                <div class="plate-flag"><span class="f-green"></span><span class="f-white"></span><span class="f-red"></span></div>
-                <div class="plate-ir">I.R.<br>IRAN</div>
-                <div class="plate-bolt"></div>
-                <div class="plate-bolt"></div>
-              </div>
-              <div class="plate-main">
-                <div class="plate-section">
-                  <input class="plate-digit" name="vf_plate_d1" inputmode="numeric" maxlength="1" autocomplete="off">
-                  <input class="plate-digit" name="vf_plate_d2" inputmode="numeric" maxlength="1" autocomplete="off">
-                </div>
-                <div class="plate-section">
-                  <select class="plate-letter" name="vf_plate_letter">
-                    <option value="">— حرف —</option>
-                    {% for l in 'ابپتجچحخدذرزسشصعغفقکگلمنوهی' %}
-                    <option value="{{ l }}">{{ l }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="plate-section">
-                  <input class="plate-digit" name="vf_plate_d3" inputmode="numeric" maxlength="1" autocomplete="off">
-                  <input class="plate-digit" name="vf_plate_d4" inputmode="numeric" maxlength="1" autocomplete="off">
-                  <input class="plate-digit" name="vf_plate_d5" inputmode="numeric" maxlength="1" autocomplete="off">
-                </div>
-                <div class="plate-iran">
-                  <span class="plate-iran-label">ایران</span>
-                  <div class="plate-section">
-                    <input class="plate-digit" name="vf_plate_ir1" inputmode="numeric" maxlength="1" autocomplete="off">
-                    <input class="plate-digit" name="vf_plate_ir2" inputmode="numeric" maxlength="1" autocomplete="off">
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {# v1.21 — the same single plate template as everywhere else #}
+          {% include 'main/_plate.html' with prefix='vf_plate_' plate_id='vf-plate' %}
         </div>
       </div>
       <div class="slot-actions" style="margin-top:8px">

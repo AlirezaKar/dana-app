@@ -1,0 +1,78 @@
+{% comment %}
+===========================================================================
+THE Iranian plate component (v1.21) — every plate in the app is this file.
+
+Editable (form inputs — the name prefix decides the field names):
+    include 'main/_plate.html' with prefix='plate_' slots=plate_slots
+    include 'main/_plate.html' with prefix='vf_plate_' plate_id='vf-plate'
+
+Read-only (a stored plate, shown the way the DB keeps it):
+    include 'main/_plate.html' with slots=case.plate_slots readonly=True
+
+`slots` is the dict built by app_core.utils.plate.plate_slots() — the eight
+boxes d1 d2 letter d3 d4 d5 + the «ایران» pair ir1 ir2. Input names are
+<prefix>d1 … <prefix>ir2, exactly what build_plate_value() (server) and
+DANA.composePlate() (browser) read back.
+
+(NB: a {# #} comment in Django is ONE line — this block needs {% comment %}.)
+===========================================================================
+{% endcomment %}
+{% spaceless %}
+<div class="plate-wrapper" dir="ltr">
+  <div class="plate{% if readonly %} plate-readonly{% endif %}"{% if plate_id %} id="{{ plate_id }}"{% endif %}>
+    <div class="plate-blue">
+      <div class="plate-flag"><span class="f-green"></span><span class="f-white"></span><span class="f-red"></span></div>
+      <div class="plate-ir">I.R.<br>IRAN</div>
+      <div class="plate-bolt"></div>
+      <div class="plate-bolt"></div>
+    </div>
+    <div class="plate-main">
+      <div class="plate-section">
+        {% if readonly %}
+          <span class="plate-cell plate-digit-static">{{ slots.plate_d1|default:'—' }}</span>
+          <span class="plate-cell plate-digit-static">{{ slots.plate_d2|default:'—' }}</span>
+        {% else %}
+          <input class="plate-digit" name="{{ prefix }}d1" value="{{ slots.plate_d1 }}" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="plate-digit" name="{{ prefix }}d2" value="{{ slots.plate_d2 }}" inputmode="numeric" maxlength="1" autocomplete="off">
+        {% endif %}
+      </div>
+      <div class="plate-section">
+        {% if readonly %}
+          <span class="plate-cell plate-letter-static">{{ slots.plate_letter|default:'—' }}</span>
+        {% else %}
+          <select class="plate-letter" name="{{ prefix }}letter">
+            <option value="">— حرف —</option>
+            {% for l in 'ابپتجچحخدذرزسشصعغفقکگلمنوهی' %}
+            <option value="{{ l }}" {% if slots.plate_letter == l %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+      </div>
+      <div class="plate-section">
+        {% if readonly %}
+          <span class="plate-cell plate-digit-static">{{ slots.plate_d3|default:'—' }}</span>
+          <span class="plate-cell plate-digit-static">{{ slots.plate_d4|default:'—' }}</span>
+          <span class="plate-cell plate-digit-static">{{ slots.plate_d5|default:'—' }}</span>
+        {% else %}
+          <input class="plate-digit" name="{{ prefix }}d3" value="{{ slots.plate_d3 }}" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="plate-digit" name="{{ prefix }}d4" value="{{ slots.plate_d4 }}" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="plate-digit" name="{{ prefix }}d5" value="{{ slots.plate_d5 }}" inputmode="numeric" maxlength="1" autocomplete="off">
+        {% endif %}
+      </div>
+      {# ---- «ایران ##» — stored on its own, exactly like the insurance tables #}
+      <div class="plate-iran">
+        <span class="plate-iran-label">ایران</span>
+        <div class="plate-section">
+          {% if readonly %}
+            <span class="plate-cell plate-digit-static">{{ slots.plate_ir1|default:'—' }}</span>
+            <span class="plate-cell plate-digit-static">{{ slots.plate_ir2|default:'—' }}</span>
+          {% else %}
+            <input class="plate-digit" name="{{ prefix }}ir1" value="{{ slots.plate_ir1 }}" inputmode="numeric" maxlength="1" autocomplete="off">
+            <input class="plate-digit" name="{{ prefix }}ir2" value="{{ slots.plate_ir2 }}" inputmode="numeric" maxlength="1" autocomplete="off">
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endspaceless %}

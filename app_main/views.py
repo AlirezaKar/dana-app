@@ -69,31 +69,9 @@ def _refresh_reference_data():
 # --------------------------------------------------------------------------- #
 # the case finder (was «مرحله ۱ — اطلاعات», now at the top of the upload page)
 # --------------------------------------------------------------------------- #
-def build_plate_value(p):
-    """Assemble the plate component into (plate, serial) — Excel sample format."""
-    def d(name):
-        return to_en(p.get(name, '') or '').strip()
-
-    letter = (p.get('plate_letter', '') or '').strip()
-    d1, d2, d3, d4, d5 = d('plate_d1'), d('plate_d2'), d('plate_d3'), d('plate_d4'), d('plate_d5')
-    ir1, ir2 = d('plate_ir1'), d('plate_ir2')
-    plate = f'{d1}{d2}{letter}{d3}{d4}{d5}' if (d1 and d2 and letter and d3 and d4 and d5) else ''
-    serial = f'{ir1}{ir2}' if (ir1 and ir2) else ''
-    return plate, serial
-
-
-def plate_slots(plate_value, plate_serial=''):
-    slots = {'plate_d1': '', 'plate_d2': '', 'plate_letter': '', 'plate_d3': '',
-             'plate_d4': '', 'plate_d5': '', 'plate_ir1': '', 'plate_ir2': ''}
-    main = (plate_value or '').split('-')[0]
-    if len(main) >= 6:
-        slots['plate_d1'], slots['plate_d2'] = main[0], main[1]
-        slots['plate_letter'] = main[2]
-        slots['plate_d3'], slots['plate_d4'], slots['plate_d5'] = main[3], main[4], main[5]
-    serial = (plate_serial or '').replace('-', '')
-    if len(serial) >= 2:
-        slots['plate_ir1'], slots['plate_ir2'] = serial[0], serial[1]
-    return slots
+# v1.21 — the plate helpers moved to app_core.utils.plate (the models need them
+# too); they are re-exported here so existing imports keep working.
+from app_core.utils.plate import build_plate_value, plate_slots  # noqa: E402,F401
 
 
 def resolve_record(file_code, pick_id=None, branch_codes=None, insurance=None):
