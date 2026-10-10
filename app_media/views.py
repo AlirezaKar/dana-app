@@ -19,9 +19,9 @@ from PIL import Image as PILImage
 from app_account.activity import log_activity
 
 from .constants import (GROUP_BY_ID, GROUPS, SECTION_KEYS, SECTION_MIN,
-                        SECTION_TO_GROUP, TITLE_BY_KEY)
+                        SECTION_TO_GROUP, SINGLE_PHOTO_SECTIONS, TITLE_BY_KEY)
 from .models import CaseImage
-from .services import storage, timing
+from .services import formats, storage, timing
 
 #: v1.16 — an explicit image-type map: ``mimetypes`` relies on the OS registry
 #: (missing on some Windows installs) and an octet-stream response makes the
@@ -36,6 +36,10 @@ _IMAGE_TYPES = {
     '.bmp': 'image/bmp',
     '.tif': 'image/tiff',
     '.tiff': 'image/tiff',
+    # v1.21 — phone-native formats (stored as they came, never converted)
+    '.heic': 'image/heic',
+    '.heif': 'image/heif',
+    '.dng': 'image/x-adobe-dng',
 }
 
 
@@ -113,13 +117,39 @@ def upload(request):
             'error': 'این بخش تأیید نهایی شده است؛ امکان افزودن تصویر نیست.',
         }, status=400)
 
-    try:
-        with PILImage.open(f) as im:
-            im.verify()  # ensure it really is an image
-    except Exception:
-        return JsonResponse({'ok': False, 'error': 'فایل انتخاب‌شده تصویر نیست.'}, status=400)
+    # v1.21 — a single-photo field holds exactly one photo: its buttons are
+    # hidden as soon as it has one, and the same rule is enforced here (drag &
+    # drop does not go through the buttons). Delete the photo to take a new one.
+    if section in SINGLE_PHOTO_SECTIONS and CaseImage.objects.filter(
+            **_owner_filter(_owner(sub, party))).filter(section=section).exists():
+        return JsonResponse({
+            'ok': False,
+            'error': f'برای «{TITLE_BY_KEY.get(section, section)}» قبلاً یک تصویر '
+                     'بارگذاری شده است؛ برای جایگزینی ابتدا همان را حذف کنید.',
+        }, status=400)
 
-    rel = storage.save_case_image(request, sub, party, section, f)
+    # v1.21 — only the phone formats are accepted (HEIC/HEIF, JPEG/JPG, PNG,
+    # DNG); extension **and** content are checked, and the file is stored in
+    # the very format it was taken with (never converted).
+    head = formats._read_head(f)
+    ok, error, suffix = formats.validate(f, head=head)
+    if not ok:
+        return JsonResponse({'ok': False, 'error': error}, status=400)
+
+    if not formats.needs_no_watermark(suffix):
+        # Pillow cannot open HEIC/DNG — those are recognised by their magic
+        # bytes above, everything else is verified as a real image here.
+        try:
+            with PILImage.open(f) as im:
+                im.verify()  # ensure it really is an image
+        except Exception:
+            return JsonResponse({'ok': False, 'error': 'فایل انتخاب‌شده تصویر نیست.'}, status=400)
+        try:
+            f.seek(0)
+        except Exception:
+            pass
+
+    rel = storage.save_case_image(request, sub, party, section, f, suffix=suffix)
     img = CaseImage.objects.filter(submission=sub, image_path=rel).first()
     log_activity('image_upload', request=request, method='POST',
                  description=(f'بارگذاری تصویر در بخش «{TITLE_BY_KEY.get(section, section)}»'

@@ -39,6 +39,11 @@ TITLE_BY_KEY = dict(SECTION_CHOICES)
 # «عکس‌های اطراف ماشین» is a multi-photo field (4 …).
 MULTI_PHOTO_SECTIONS = {'car_shots'}
 
+#: v1.21 — the fields that take a single photo (the complement of the multi
+#: ones). Their upload buttons disappear as soon as the field has its photo and
+#: come back when that photo is deleted; a second upload is refused.
+SINGLE_PHOTO_SECTIONS = {k for k, _ in SECTION_CHOICES if k not in MULTI_PHOTO_SECTIONS}
+
 # minimum images per field (None = unlimited)
 SECTION_MIN = {
     'license_front': 1,

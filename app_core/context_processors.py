@@ -59,6 +59,11 @@ def dana_context(request):
     dev_tools = dev_settings.enabled()
     dev_gap = dev_settings.get(request, 'CAR_IMAGE_MAX_GAP_SECONDS')
 
+    # v1.21 — the only image formats an upload may have (HEIC/HEIF, JPEG/JPG,
+    # PNG, DNG): the «accept» attribute of every file input comes from here, so
+    # the list lives in one place (app_media/services/formats.py).
+    from app_media.services.formats import ACCEPT_ATTR
+
     # v1.12 — the header «خروج» button (every page except the wizard, which has
     # its own badges, and the final page) + the session countdown
     auth = request.session.get('auth') or {}
@@ -76,6 +81,8 @@ def dana_context(request):
         'dev_tools': dev_tools,
         'dev_gap': dev_gap,
         'dev_gap_overridden': dev_settings.is_overridden(request, 'CAR_IMAGE_MAX_GAP_SECONDS'),
+        # v1.21 — «accept» of every upload input (single list of formats)
+        'ACCEPT_IMAGE': ACCEPT_ATTR,
         'session_timeout_json': json.dumps(timeout, ensure_ascii=False),
         # brand links (settings.BRAND_URLS) — logo links + footer
         'DANA_URL': getattr(settings, 'BRAND_URLS', {}).get('DANA_URL', 'https://www.dana-insurance.com/'),

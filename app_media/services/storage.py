@@ -126,7 +126,7 @@ def field_name(section: str, ext: str) -> str:
     return f'{safe_name(section)}{ext}'
 
 
-def save_case_image(request, submission, party, section, uploaded_file):
+def save_case_image(request, submission, party, section, uploaded_file, suffix=None):
     """Store one uploaded photo in its final folder, named by field.
 
     Writes into ``…/<کد رایانه>-<username>/`` (مقصر) or ``…/<شماره پلاک>/``
@@ -140,16 +140,26 @@ def save_case_image(request, submission, party, section, uploaded_file):
     exactly one file — uploading it again **replaces** the previous photo; and
     the staged ``*.upload`` file is **moved** into place (never copied), so the
     folder cannot end up with the same photo twice.
+
+    v1.21 — the bytes are stored **as they were taken**: ``suffix`` is the
+    already-validated extension (``app_media.services.formats``), so an HEIC
+    stays an HEIC and a ProRAW stays a DNG — there is no conversion step and no
+    re-naming to ``.jpg`` any more.
     """
     from ..constants import MULTI_PHOTO_SECTIONS
     from ..models import CaseImage
-    from . import watermark
+    from . import formats
 
     folder = ensure_dir(owner_dir(submission, party))
 
-    suffix = Path(uploaded_file.name or '').suffix.lower()
-    if suffix not in ('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tif', '.tiff'):
-        suffix = '.jpg'
+    suffix = str(suffix or '').lower()
+    if suffix and not suffix.startswith('.'):
+        suffix = '.' + suffix
+    if not formats.is_allowed_suffix(suffix):
+        # no validated suffix → fall back to the file name, then to .jpg
+        suffix = Path(uploaded_file.name or '').suffix.lower()
+        if not formats.is_allowed_suffix(suffix):
+            suffix = '.jpg'
 
     name = _unique_name(folder, field_name(section, suffix))
     target = folder / name
@@ -158,11 +168,6 @@ def save_case_image(request, submission, party, section, uploaded_file):
         with open(staging, 'wb') as out:
             for chunk in uploaded_file.chunks():
                 out.write(chunk)
-
-        # the extension follows the real content (browsers often send «image»)
-        real_suffix = watermark.extension_for(staging, suffix)
-        if real_suffix != suffix:
-            suffix = real_suffix
 
         # v1.14.1 — no stamp at upload time; «کد رایانه» is burned in at finalization
         stamped_at = None

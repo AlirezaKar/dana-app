@@ -154,6 +154,16 @@
     }
   };
 
+  /* ---- v1.21 — HEIC/HEIF/DNG cannot be decoded by a browser: show a note
+     instead of a broken image (the file itself is stored untouched). ---- */
+  document.addEventListener('error', function (e) {
+    var el = e.target;
+    if (el && el.tagName === 'IMG' && el.closest) {
+      var thumb = el.closest('.thumb');
+      if (thumb) { thumb.classList.add('thumb-nopreview'); el.style.display = 'none'; }
+    }
+  }, true);
+
   /* =========================================================================
      One upload area (a field of a group) — bulk uploads, remove, drag&drop.
      Idempotent: every element is wired at most once, so freshly inserted
@@ -162,6 +172,24 @@
   DANA.wireUploadArea = function (root) {
     root = root || document;
     var csrf = DANA.csrf();
+
+    /* ---- accepted formats (v1.21) — the same list the server enforces ---- */
+    var OK_EXT = /\.(jpe?g|png|heic|heif|dng)$/i;
+    var OK_TYPE = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic',
+                   'image/heif', 'image/x-adobe-dng'];
+    function accepted(file) {
+      if (!file) return false;
+      if (OK_EXT.test(file.name || '')) return true;
+      return OK_TYPE.indexOf((file.type || '').toLowerCase()) >= 0;
+    }
+
+    /* ---- single-photo fields: buttons hide while the photo is there ---- */
+    function syncSlot(area) {
+      if (!area || area.dataset.single !== '1') return;
+      var filled = area.querySelectorAll('.thumb').length > 0;
+      area.classList.toggle('slot-has-image', filled);
+    }
+    DANA.syncSlot = syncSlot;
 
     function makeThumb(img, area) {
       var locked = area.dataset.locked === '1';
@@ -190,6 +218,7 @@
                 return;
               }
               el.remove();
+              syncSlot(area);
             })
             .catch(function () {
               rm.disabled = false;
@@ -203,6 +232,14 @@
     function uploadFile(file, area) {
       if (area.dataset.locked === '1') {
         DANA.toast('این بخش تأیید نهایی شده است.', true);
+        return;
+      }
+      if (!accepted(file)) {
+        DANA.toast('قالب فایل پذیرفته نیست — فقط JPG/JPEG، PNG، HEIC/HEIF و DNG (RAW) مجاز است.', true, 5000);
+        return;
+      }
+      if (area.dataset.single === '1' && area.querySelector('.thumb')) {
+        DANA.toast('برای این مورد قبلاً تصویر بارگذاری شده است؛ برای جایگزینی ابتدا آن را حذف کنید.', true, 5000);
         return;
       }
       var grid = area.querySelector('.thumb-grid');
@@ -223,6 +260,7 @@
           var data = pair[1];
           if (!data.ok) { DANA.toast(data.error || 'آپلود ناموفق بود', true, 5000); return; }
           grid.appendChild(makeThumb(data.image, area));
+          syncSlot(area);
         })
         .catch(function () {
           ph.remove();
@@ -254,6 +292,7 @@
               }
               var thumb = rm.closest('.thumb');
               if (thumb) thumb.remove();
+              syncSlot(rm.closest('.slot-area'));
             })
             .catch(function () {
               rm.disabled = false;
@@ -283,9 +322,7 @@
         area.addEventListener(ev, function (e) { e.preventDefault(); area.classList.remove('dragover'); });
       });
       area.addEventListener('drop', function (e) {
-        Array.prototype.forEach.call(e.dataTransfer.files, function (f) {
-          if (f.type && f.type.indexOf('image/') === 0) uploadFile(f, area);
-        });
+        Array.prototype.forEach.call(e.dataTransfer.files, function (f) { uploadFile(f, area); });
       });
     });
 
@@ -340,7 +377,10 @@
               var grp = btn.dataset.confirmGroup || '';
               var sel = '.slot-area[data-group="' + grp + '"]';
               if (btn.dataset.party) sel += '[data-party="' + btn.dataset.party + '"]';
-              document.querySelectorAll(sel + ' .thumb').forEach(function (t) { t.remove(); });
+              document.querySelectorAll(sel).forEach(function (a) {
+                a.querySelectorAll('.thumb').forEach(function (t) { t.remove(); });
+                syncSlot(a);
+              });
               return;
             }
             DANA.toast(data.already

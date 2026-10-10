@@ -33,11 +33,15 @@
   {% endif %}
 
   {# ---------- single-photo fields: one compact grid ---------- #}
+  {# v1.21 — a field of this kind holds ONE photo: as soon as it has one, its   #}
+  {# own upload buttons disappear (class «slot-has-image») and come back when   #}
+  {# that photo is deleted. Per field, not per group.                           #}
   <div class="slot-grid">
   {% for slot in g.slots %}{% if not slot.multi %}
-    <div class="slot-area slot-single" data-section="{{ slot.key }}" data-party="{{ party_id|default:'' }}"
+    <div class="slot-area slot-single {% if slot.count %}slot-has-image{% endif %}"
+         data-section="{{ slot.key }}" data-party="{{ party_id|default:'' }}"
          data-min="{{ slot.min }}" data-max="{{ slot.max|default_if_none:'' }}"
-         data-group="{{ g.id }}" data-locked="{{ g.locked|yesno:'1,' }}">
+         data-group="{{ g.id }}" data-locked="{{ g.locked|yesno:'1,' }}" data-single="1">
       <p class="slot-title">{{ slot.label }}</p>
 
       <div class="thumb-grid">
@@ -59,8 +63,8 @@
       {% if g.locked %}
 
       {% else %}
-        <input type="file" accept="image/*" capture="environment" class="file-input file-camera" hidden>
-        <input type="file" accept="image/*" class="file-input file-gallery" hidden>
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" capture="environment" class="file-input file-camera" hidden>
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" class="file-input file-gallery" hidden>
         <div class="slot-actions">
           <button type="button" class="btn btn-accent act-camera" title="گرفتن عکس با دوربین"> دوربین</button>
           <button type="button" class="btn btn-secondary act-gallery" title="انتخاب از گالری"> گالری</button>
@@ -98,8 +102,8 @@
           <span> این بخش تأیید نهایی شده است و امکان تغییر ندارد.</span>
         </div>
       {% else %}
-        <input type="file" accept="image/*" capture="environment" multiple class="file-input file-camera" hidden>
-        <input type="file" accept="image/*" multiple class="file-input file-gallery" hidden>
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" capture="environment" multiple class="file-input file-camera" hidden>
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" multiple class="file-input file-gallery" hidden>
         <div class="slot-actions">
           <button type="button" class="btn btn-accent act-camera">
             گرفتن عکس با دوربین

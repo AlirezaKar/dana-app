@@ -696,6 +696,18 @@ input.field-locked, .cb-input.field-locked {
 .slot-actions .btn { padding: 8px 13px; font-size: 0.8rem; }
 .drop-hint { font-size: 0.72rem; color: #9fb0bf; margin-top: 6px; }
 .slot-area.dragover { outline: 2px dashed var(--primary); outline-offset: 4px; border-radius: 10px; }
+/* v1.21 — a single-photo field that already has its photo hides its own
+   buttons; deleting the photo brings them back (media.js toggles the class). */
+.slot-area.slot-single.slot-has-image .slot-actions { display: none; }
+/* a format the browser cannot draw (HEIC/DNG) — the file is stored as taken */
+.thumb.thumb-nopreview .thumb-meta::before {
+  content: 'پیش‌نمایش این قالب در مرورگر نمایش داده نمی‌شود';
+  display: block;
+  padding: 10px 6px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+}
 
 /* ---------- 16b. Informational badges + finish button ---------- */
 .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }

@@ -96,7 +96,10 @@ def config() -> dict:
 
 
 #: file extensions treated as photos
-IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff'}
+#: (v1.21 — HEIC/HEIF/DNG belong to the accepted uploads; Pillow cannot open
+#: them, so the stamping step skips those files.)
+IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff',
+                  '.heic', '.heif', '.dng'}
 
 
 #: Pillow format → the extension we save it with
@@ -998,7 +1001,7 @@ def run_simple_for_submission(submission, base_url: str | None = None) -> int:
     """
     from django.utils import timezone as tz
 
-    from app_media.services import storage
+    from app_media.services import formats, storage
 
     record = getattr(submission, 'any_record', None)
     code = (getattr(submission, 'entered_file_code', '')
@@ -1025,6 +1028,11 @@ def run_simple_for_submission(submission, base_url: str | None = None) -> int:
         path = storage.root() / image.image_path
         if not path.exists():
             problems.append(f'{image.image_path}: فایل روی دیسک نیست')
+            continue
+        if formats.needs_no_watermark(path.name):
+            # v1.21 — HEIC/HEIF/DNG are stored byte-for-byte: Pillow can neither
+            # open nor write them, and a conversion is explicitly unwanted, so
+            # these photos keep their original bytes (no stamp, no error).
             continue
         try:
             simple_watermark_file(path, info, cfg)
