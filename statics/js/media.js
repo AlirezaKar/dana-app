@@ -1,7 +1,8 @@
 /* ===========================================================================
    DANA — upload page behavior (app_media, v1.14)
-   - G1 «پشت و رو گواهینامه و کارت ماشین»: bulk uploads + a **repeatable**
-     confirm button (no timer)
+   - G1 «پشت و رو گواهینامه و کارت ماشین»: bulk uploads + a confirm button
+     with **no timer**; v1.21 — like the other two it is ONE-time, so after it
+     the group is locked and its buttons are gone
    - G2 «شماره شاسی و پلاک‌ها» / G3 «اطراف ماشین»: bulk uploads + ONE final
      confirm button which runs the timing validation server-side
    - the same three groups for «مقصر» and for every زیان‌دیده (added with
@@ -305,9 +306,13 @@
                 DANA.toast(data.error || 'حذف تصویر ناموفق بود', true);
                 return;
               }
+              // v1.21 — grab the slot BEFORE detaching the thumbnail: once the
+              // button is out of the document `rm.closest('.slot-area')` is null
+              // and the upload buttons never came back (owner bug report).
+              var area = rm.closest('.slot-area');
               var thumb = rm.closest('.thumb');
               if (thumb) thumb.remove();
-              syncSlot(rm.closest('.slot-area'));
+              syncSlot(area);
             })
             .catch(function () {
               rm.disabled = false;
