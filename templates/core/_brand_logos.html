@@ -1,16 +1,16 @@
 {% load static %}
-{# ===========================================================================
-   THE brand logos (v1.21) — one file, one pair of images.
+{% comment %}
+THE brand logos (v1.21) — one file, one pair of images.
 
-   Every page includes this partial instead of hardcoding a path, and the two
-   file names come from `.env` (DANA_LOGO / HEF_LOGO → settings.BRAND_LOGOS).
-   Replace statics/img/dana-logo.png — or point DANA_LOGO at another file — and
-   the whole site (pages + the watermark stamp) changes with it.
+Every page includes this partial instead of hardcoding a path, and the two
+file names come from `.env` (DANA_LOGO / HEF_LOGO -> settings.BRAND_LOGOS).
+Replace statics/img/dana-logo.png, or point DANA_LOGO at another file, and
+the whole site (pages + the watermark stamp) changes with it.
 
-   Variants:  (default) the linked pair in a card header
-              thanks     the pair on the final «با تشکر» page
-              plain      bare <img> tags, no links (the public /wm-info/ page)
-   =========================================================================== #}
+Variants:  (default) the linked pair in a card header
+           thanks     the pair on the final page
+           plain      bare img tags, no links (the public info page)
+{% endcomment %}
 {% if variant == 'plain' %}
 <img src="{% static DANA_LOGO %}" alt="لوگوی دانا">
 <img class="logo-sep" src="{% static HEF_LOGO %}" alt="لوگوی هوشمند ارتباط فرادید">

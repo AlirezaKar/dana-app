@@ -39,6 +39,21 @@ DEBUG = env.bool('DEBUG', True)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', ['*'])
 
+# v1.22 — hardened cookies / TLS once DEBUG is off. Everything is env-driven and
+# OFF by default so a plain-HTTP install (or the live preview) keeps working;
+# behind a real TLS terminator set ENFORCE_HTTPS=True in `.env` and the app adds
+# the secure/HTTPS headers and cookies for you.
+if not DEBUG:
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    if env.bool('ENFORCE_HTTPS', False):
+        SECURE_SSL_REDIRECT = True
+        SECURE_HSTS_SECONDS = 31536000
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+        SESSION_COOKIE_SECURE = True
+        CSRF_COOKIE_SECURE = True
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

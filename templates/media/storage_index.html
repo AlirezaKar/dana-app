@@ -27,12 +27,11 @@
   </p>
 
   {# ------------------------------- finished cases (storage/files) ------- #}
-  <h3 class="section-title">پرونده‌های پایان‌یافته — <span class="mono">storage/files</span></h3>
+  <h3 class="section-title">پرونده‌های پایان‌یافته</h3>
   {% if final_cases %}
   <div class="badges">
     <span class="badge">پرونده‌ها: <b>{{ files_summary.folders|to_fa }}</b></span>
     <span class="badge">کل تصاویر: <b>{{ files_summary.files|to_fa }}</b></span>
-    <span class="badge mono" dir="ltr">{{ files_root }}</span>
   </div>
   <div class="folder-grid">
     {% for f in final_cases %}
@@ -64,7 +63,7 @@
 
   {# ------------------------------------------------ final folders -- #}
   {% if final_folders %}
-  <h3 class="section-title">پوشه‌های نهایی پرونده‌ها (storage/)</h3>
+  <h3 class="section-title">پوشه‌های نهایی پرونده‌ها</h3>
   <div class="folder-grid">
     {% for f in final_folders %}
     <a class="folder-btn" href="{% url 'storage_folder' f.rel %}" title="جزئیات پوشه {{ f.name }}">
