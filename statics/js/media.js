@@ -214,7 +214,7 @@
       el.innerHTML =
         '<img src="' + img.url + '" alt="" data-lightbox="' + img.url + '">' +
         '<div class="thumb-meta"><div class="thumb-name"></div><div class="thumb-size"></div></div>' +
-        (locked ? '' : '<button type="button" class="thumb-remove" title="حذف">✕</button>');
+        (locked ? '' : '<button type="button" class="thumb-remove" title="حذف این تصویر">حذف</button>');
       el.querySelector('.thumb-name').textContent = img.name;
       el.querySelector('.thumb-size').textContent = DANA.formatSize(img.size);
       var rm = el.querySelector('.thumb-remove');
@@ -380,7 +380,6 @@
             if (data.car_group_reset) {
               // «زمان زیادی طول کشید!» — the ONLY popup left for uploads.
               DANA.popup({
-                icon: '⏱',
                 danger: true,
                 title: 'زمان زیادی طول کشید!',
                 sub: data.message || 'تصاویر این بخش حذف شدند؛ بقیهٔ تصاویر شما حفظ شده‌اند.',

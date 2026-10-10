@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load static %}
 {% block title %}مرحله ۱ — ورود و اطلاعات{% endblock %}
 {% block content %}
 
@@ -17,8 +16,7 @@
       {% if stage == 1 %}ورود به سامانه{% else %}انتخاب نوع بیمه{% endif %}
     </h2>
     <span class="card-logos">
-      <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/dana-logo.png' %}" alt="بیمه دانا" class="card-logo"></a>
-      <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/hef.co.ir.png' %}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
+      {% include 'core/_brand_logos.html' %}
     </span>
   </div>
 

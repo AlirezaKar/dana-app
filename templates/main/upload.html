@@ -5,7 +5,7 @@
 {% block content %}
 
 <div class="steps">
-  <div class="step done"><span class="step-num">✓</span><span class="step-label">اطلاعات</span></div>
+  <div class="step done"><span class="step-num">۱</span><span class="step-label">اطلاعات</span></div>
   <div class="step-line done"></div>
   <div class="step active"><span class="step-num">۲</span><span class="step-label">آپلود</span></div>
   <div class="step-line"></div>
@@ -16,8 +16,7 @@
   <div class="card-title-row">
     <h2 class="card-title">بارگذاری تصاویر</h2>
     <span class="card-logos">
-      <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/dana-logo.png' %}" alt="بیمه دانا" class="card-logo"></a>
-      <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/hef.co.ir.png' %}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
+      {% include 'core/_brand_logos.html' %}
     </span>
   </div>
 
@@ -51,8 +50,8 @@
         <label class="field-label">کد رایانه پرونده</label>
         <div class="idk-box active-box" data-box="0">
           <div class="cb" data-url="/records/search/" data-field="file_code" data-today="1" data-min="0">
-            <input type="text" id="id_file_code" name="file_code" class="cb-input mono" dir="ltr"
-                   value="{{ finder_state.file_code }}" placeholder="برای دیدن فهرست کلیک کنید یا عدد ابتدایی را تایپ کنید" autocomplete="off">
+            <input type="text" id="id_file_code" name="file_code" class="cb-input mono" dir="rtl"
+                   value="{{ finder_state.file_code }}" placeholder="برای دیدن فهرست کلیک کنید" autocomplete="off">
           </div>
           <div class="field-hint">فهرست پرونده‌های امروز نمایش داده می‌شود؛ برای پرونده‌های قدیمی، کد را کامل تایپ کنید.</div>
         </div>
@@ -137,7 +136,7 @@
   {# ---------- اضافه کردن زیان دیده ---------- #}
   <div class="victim-add-box" id="victim-add-box">
     <button type="button" class="btn btn-accent btn-large victim-add-trigger" id="add-victim-btn">
-      ＋ اضافه کردن زیان دیده
+      اضافه کردن زیان دیده
     </button>
     <div class="victim-form hidden" id="victim-form">
       <div class="form-grid form-grid-2">

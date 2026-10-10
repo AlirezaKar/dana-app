@@ -2,10 +2,6 @@
 from django.conf import settings
 from django.urls import reverse
 
-#: pages that already carry their own «خروج» control (the wizard) or are the end
-#: of the flow (the final page) — the global header button is hidden there
-NO_GLOBAL_EXIT = {'login', 'login_post', 'logout', 'step3_done', 'session_ping'}
-
 #: v1.14 — the native browser Back button must act like **our own** back button:
 #: each page declares where «بازگشت» leads and core.js routes popstate there.
 BACK_URLS = {
@@ -64,8 +60,8 @@ def dana_context(request):
     # the list lives in one place (app_media/services/formats.py).
     from app_media.services.formats import ACCEPT_ATTR
 
-    # v1.12 — the header «خروج» button (every page except the wizard, which has
-    # its own badges, and the final page) + the session countdown
+    # v1.21 — the header «خروج» button is gone; only the badge next to the
+    # user's name exits the app. The session countdown stays on every page.
     auth = request.session.get('auth') or {}
     url_name = getattr(getattr(request, 'resolver_match', None), 'url_name', '') or ''
     timeout = _session_timeout(request)
@@ -76,7 +72,6 @@ def dana_context(request):
         'has_case': bool((request.session.get('case') or {}).get('pk')),
         'has_session': bool(auth.get('username')),
         'session_username': auth.get('username', ''),
-        'show_exit': bool(auth.get('username')) and url_name not in NO_GLOBAL_EXIT,
         'back_url': BACK_URLS.get(url_name, ''),
         'dev_tools': dev_tools,
         'dev_gap': dev_gap,
@@ -87,6 +82,7 @@ def dana_context(request):
         # brand links (settings.BRAND_URLS) — logo links + footer
         'DANA_URL': getattr(settings, 'BRAND_URLS', {}).get('DANA_URL', 'https://www.dana-insurance.com/'),
         'HEF_URL': getattr(settings, 'BRAND_URLS', {}).get('HEF_URL', 'http://hef.co.ir'),
+        'HEF_LOGO': getattr(settings, 'BRAND_LOGOS', {}).get('HEF_LOGO', 'img/hef.co.ir.png'),
         # v1.16 — the css/js cache-buster comes from settings.STATIC_VERSION
         # (bumped per release) — the templates no longer hardcode versions.
         'STATIC_VERSION': getattr(settings, 'STATIC_VERSION', '1.16'),

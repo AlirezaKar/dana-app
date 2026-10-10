@@ -7,8 +7,7 @@
   <div class="card-title-row">
     <h2 class="card-title">پوشهٔ ذخیره‌سازی — storage</h2>
     <span class="card-logos">
-      <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/dana-logo.png' %}" alt="بیمه دانا" class="card-logo"></a>
-      <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/hef.co.ir.png' %}" alt="هوشمند ارتباط فرادید" class="card-logo card-logo-hef"></a>
+      {% include 'core/_brand_logos.html' %}
     </span>
   </div>
 
@@ -22,7 +21,7 @@
   </div>
 
   <p class="card-desc">
-    همهٔ محتویات پوشهٔ موقت، دسته‌بندی‌شده و برچسب‌دار: هر پوشه یک دکمه است و با کلیک روی آن،
+    همهٔ پرونده‌ها، دسته‌بندی‌شده و برچسب‌دار: هر پوشه یک دکمه است و با کلیک روی آن،
     صفحهٔ جزئیات همان پوشه (نام‌ها، اندازه‌ها، تاریخ شمسی و تصاویر) در تب جدید باز می‌شود.
     این صفحه فقط خواندنی است و هیچ فایلی را تغییر نمی‌دهد.
   </p>
@@ -39,9 +38,6 @@
     {% for f in final_cases %}
     <a class="folder-btn" href="{% url 'storage_folder' f.rel %}" title="جزئیات پرونده {{ f.name }}">
       <span class="folder-btn-head">
-        <span class="folder-ico" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.2c.7 0 1.4.3 1.9.8l1 1.2h6.9A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11Z"/></svg>
-        </span>
         <span class="folder-btn-name mono" dir="ltr">{{ f.name }}</span>
       </span>
       <span class="folder-btn-label">پروندهٔ پایان‌یافته (واترمارک‌شده)</span>
@@ -58,50 +54,12 @@
         {% if f.extra_previews %}<span class="preview-more">+{{ f.extra_previews|to_fa }}</span>{% endif %}
       </span>
       {% endif %}
-      <span class="folder-btn-cta">مشاهدهٔ جزئیات ←</span>
+      <span class="folder-btn-cta">مشاهدهٔ جزئیات</span>
     </a>
     {% endfor %}
   </div>
   {% else %}
-  <p class="empty-note">هنوز پروندهٔ پایان‌یافته‌ای ذخیره نشده است — پوشهٔ <b class="mono" dir="ltr">storage/files</b> خالی است.</p>
-  {% endif %}
-
-  {# ------------------------------------------------ working folders ------- #}
-  <h3 class="section-title">پوشه‌های موقت (storage/tmp)</h3>
-  {% if folders %}
-  <div class="folder-grid">
-    {% for f in folders %}
-    <a class="folder-btn" href="{% url 'storage_folder' f.rel %}" title="جزئیات پوشه {{ f.name }}">
-      <span class="folder-btn-head">
-        <span class="folder-ico" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.2c.7 0 1.4.3 1.9.8l1 1.2h6.9A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11Z"/></svg>
-        </span>
-        <span class="folder-btn-name mono" dir="ltr">{{ f.name }}</span>
-      </span>
-      {% if f.label %}<span class="folder-btn-label">{{ f.label }}</span>{% else %}<span class="folder-btn-label">پوشهٔ جلسهٔ کاربر</span>{% endif %}
-      <span class="folder-btn-meta">
-        <span>{{ f.file_count_label }}</span>
-        <span class="dot">·</span>
-        <span>{{ f.size_label }}</span>
-        {% if f.subfolders %}<span class="dot">·</span><span>{{ f.subfolders|to_fa }} زیرپوشه</span>{% endif %}
-      </span>
-      <span class="folder-btn-meta muted">آخرین تغییر: {{ f.modified }}</span>
-      {% if f.previews %}
-      <span class="preview-strip">
-        {% for p in f.previews %}<img src="{% url 'storage_raw' p.rel %}" alt="{{ p.name }}" loading="lazy">{% endfor %}
-        {% if f.extra_previews %}<span class="preview-more">+{{ f.extra_previews|to_fa }}</span>{% endif %}
-      </span>
-      {% endif %}
-      <span class="folder-btn-cta">مشاهدهٔ جزئیات ←</span>
-    </a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="empty-state">
-    پوشهٔ <b class="mono" dir="ltr">storage/tmp</b> در حال حاضر خالی است.
-    با بارگذاری تصویر روی صفحهٔ آپلود (یا هر جلسهٔ جدید کارشناس)، پوشهٔ همان جلسه
-    به‌صورت خودکار اینجا ساخته و فهرست می‌شود.
-  </div>
+  <p class="empty-note">هنوز پروندهٔ پایان‌یافته‌ای ذخیره نشده است.</p>
   {% endif %}
 
   {# ------------------------------------------------ final folders -- #}
@@ -111,9 +69,6 @@
     {% for f in final_folders %}
     <a class="folder-btn" href="{% url 'storage_folder' f.rel %}" title="جزئیات پوشه {{ f.name }}">
       <span class="folder-btn-head">
-        <span class="folder-ico" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.2c.7 0 1.4.3 1.9.8l1 1.2h6.9A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11Z"/></svg>
-        </span>
         <span class="folder-btn-name mono" dir="ltr">{{ f.name }}</span>
       </span>
       <span class="folder-btn-label">شمارهٔ یکتای پرونده</span>
@@ -130,7 +85,7 @@
         {% if f.extra_previews %}<span class="preview-more">+{{ f.extra_previews|to_fa }}</span>{% endif %}
       </span>
       {% endif %}
-      <span class="folder-btn-cta">مشاهدهٔ جزئیات ←</span>
+      <span class="folder-btn-cta">مشاهدهٔ جزئیات</span>
     </a>
     {% endfor %}
   </div>

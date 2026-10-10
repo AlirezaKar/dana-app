@@ -83,10 +83,15 @@ def _owner(sub, party):
 
 
 def _group_state(owner, group):
-    """(confirmed, locked) — a one-time confirm locks its group for good."""
+    """(confirmed, locked) — a one-time confirm locks its group for good.
+
+    v1.21 — the docs group («پشت و رو گواهینامه و کارت ماشین») is one-time too,
+    exactly like the two timed ones.
+    """
     gid = group['id']
     if gid == 'group_docs':
-        return getattr(owner, 'docs_confirmed_at', None) is not None, False
+        confirmed = getattr(owner, 'docs_confirmed_at', None) is not None
+        return confirmed, confirmed
     if gid == 'group_plates':
         return getattr(owner, 'plates_confirmed', False), getattr(owner, 'plates_confirmed', False)
     return getattr(owner, 'car_confirmed', False), getattr(owner, 'car_confirmed', False)

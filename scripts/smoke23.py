@@ -181,13 +181,20 @@ for i in range(SECTION_MIN['car_shots']):
 r = c.post('/media/confirm-group/', {'group': 'group_car', 'party': victim_id})
 check('victim confirm group_car after re-shoot', r.json().get('ok') is True,
       r.content[:120].decode())
-# a one-time (timed) group refuses a second confirm; docs stays repeatable
-r = c.post('/media/confirm-group/', {'group': 'group_car', 'party': victim_id})
-check('second confirm of a timed group refused', r.json().get('ok') is False
-      and r.json().get('already') is True, r.content[:120].decode())
-r = c.post('/media/confirm-group/', {'group': 'group_docs', 'party': victim_id})
-check('docs group stays repeatable', r.json().get('ok') is True,
-      r.content[:120].decode())
+# v1.21 — EVERY group confirms exactly once, the docs group included
+for _g, _who in (('group_car', victim_id), ('group_docs', victim_id),
+                 ('group_plates', ''), ('group_docs', '')):
+    r = c.post('/media/confirm-group/', {'group': _g, 'party': _who})
+    check(f'second confirm of {_g} ({_who or "مقصر"}) refused',
+          r.json().get('ok') is False and r.json().get('already') is True,
+          r.content[:120].decode())
+# … and the locked group no longer offers a confirm button
+b = c.get('/step2-upload/').content.decode()
+check('no confirm button left for a locked group',
+      'data-confirm-group="group_docs"' not in b
+      and 'data-confirm-group="group_plates"' not in b)
+check('locked note carries the confirmation time',
+      'تأیید نهایی این بخش انجام شده است' in b)
 
 print('== G. finalize + watermark v1.19 ==')
 rows = CaseImage.objects.filter(id__in=UPLOADED)

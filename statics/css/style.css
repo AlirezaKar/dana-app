@@ -844,15 +844,7 @@ input.field-locked, .cb-input.field-locked {
 .thanks { text-align: center; }
 .thanks .card-title-row { justify-content: center; }
 .thanks h2 { font-size: clamp(1.05rem, 3vw, 1.3rem); font-weight: 800; margin: 8px 0 18px; }
-.thanks-icon {
-  width: 74px; height: 74px;
-  margin: 0 auto 14px;
-  border-radius: 50%;
-  background: var(--success);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 10px color-mix(in srgb, var(--success) 15%, transparent);
-}
+/* v1.21 — icons are gone from the app; this rule is no longer used. */
 .unique-box {
   border: 2px dashed var(--primary);
   background: var(--primary-soft);
@@ -969,7 +961,6 @@ input.field-locked, .cb-input.field-locked {
   animation: popIn 0.28s ease;
 }
 @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.popup-icon { font-size: 30px; margin-bottom: 8px; }
 .popup-title { font-weight: 800; font-size: 1rem; color: var(--ink); margin: 0 0 6px; }
 .popup-sub { font-size: 0.85rem; color: var(--muted); margin: 0; }
 .popup-bar { height: 3px; background: #e6eef6; border-radius: 999px; overflow: hidden; margin-top: 14px; }
@@ -1098,7 +1089,6 @@ input.field-locked, .cb-input.field-locked {
   transform: translateY(-1px);
 }
 .folder-btn-head { display: flex; align-items: center; gap: 8px; }
-.folder-ico { color: var(--primary); display: inline-flex; }
 .folder-btn-name { font-weight: 800; font-size: 0.82rem; word-break: break-all; }
 .folder-btn-label { font-size: 0.78rem; font-weight: 700; color: var(--primary-dark); }
 .folder-btn-meta { font-size: 0.75rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 5px; }
@@ -1198,31 +1188,6 @@ input.field-locked, .cb-input.field-locked {
    ========================================================================== */
 .header-inner { }
 .site-header { position: relative; }
-.header-exit {
-  position: absolute;
-  top: 50%;
-  left: max(14px, 2vw);
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background .15s, border-color .15s;
-  z-index: 5;
-}
-.header-exit:hover { background: rgba(255, 255, 255, 0.28); border-color: #fff; color: #fff; }
-.header-exit b { font-weight: 800; }
-.header-exit-ico { font-size: 0.95rem; line-height: 1; }
-@media (max-width: 640px) {
-  .header-exit { position: static; transform: none; margin: 10px auto 0; display: flex; width: max-content; }
-}
 
 /* ---- the countdown popup ---- */
 .timeout-overlay {

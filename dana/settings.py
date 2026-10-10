@@ -136,7 +136,7 @@ STATIC_ROOT = _path('STATIC_ROOT', STATIC_SOURCES)
 #: cache-buster for css/js links (`?v=…`) — bump on every release that changes
 #: static assets so browsers never keep an old copy (single source of truth;
 #: the templates no longer hardcode versions).
-STATIC_VERSION = env.get('STATIC_VERSION', '1.17')
+STATIC_VERSION = env.get('STATIC_VERSION', '1.21')
 
 # v1.18 — absolute base URL for the watermark QR target when the request cannot
 # provide one (management commands). Empty → the QR is skipped, never broken.
@@ -163,6 +163,15 @@ BRAND_URLS = {
     'DANA_URL': env.get('DANA_URL', 'https://www.dana-insurance.com/'),
     # changed by the owner's manual template edit (was http://hef.co.ir)
     'HEF_URL': env.get('HEF_URL', 'http://127.0.0.1:6060'),
+}
+
+# v1.21 — the logo FILES, also from `.env`, in ONE place: pages render them
+# through templates/core/_brand_logos.html and the watermark reads the same two
+# names (WATERMARK.LOGOS falls back to them). Replace a file — or point
+# DANA_LOGO / HEF_LOGO at another path under static/ — and everything changes.
+BRAND_LOGOS = {
+    'DANA_LOGO': env.get('DANA_LOGO', 'img/dana-logo.png'),
+    'HEF_LOGO': env.get('HEF_LOGO', 'img/hef.co.ir.png'),
 }
 
 DANA = {
@@ -202,7 +211,7 @@ WATERMARK = {
     'OPACITY': env.float('WATERMARK_OPACITY', 0.85),  # no background box
     'SCALE': env.float('WATERMARK_SCALE', 1.0),       # 1.0 = font ≈ 2.6 % of the short side
     'MIN_WIDTH_FRACTION': env.float('WATERMARK_MIN_WIDTH_FRACTION', 0.55),
-    'LOGOS': env.list('WATERMARK_LOGOS', ['img/dana-logo.png', 'img/hef.co.ir.png']),
+    'LOGOS': env.list('WATERMARK_LOGOS', [BRAND_LOGOS['DANA_LOGO'], BRAND_LOGOS['HEF_LOGO']]),
     # v1.14 — logos + the six text lines only (no GPS, no maps URL); the same
     # facts are written into the image metadata (Windows: Properties → Details →
     # Comments) next to the stamp. The file name is the **field name** the photo

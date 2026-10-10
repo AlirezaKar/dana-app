@@ -135,10 +135,12 @@ def _owner_images(owner):
 
 
 def _group_state(owner, group):
+    """(confirmed, locked, confirmed_at) — v1.21: **every** group is one-time,
+    so a confirmed group is a locked group (the docs group included)."""
     gid = group['id']
     if gid == 'group_docs':
         at = getattr(owner, 'docs_confirmed_at', None)
-        return bool(at), False, at
+        return bool(at), bool(at), at
     if gid == 'group_plates':
         done = bool(getattr(owner, 'plates_confirmed', False))
         return done, done, getattr(owner, 'plates_confirmed_at', None)

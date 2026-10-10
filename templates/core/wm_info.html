@@ -1,4 +1,4 @@
-{% load static %}<!DOCTYPE html>
+<!DOCTYPE html>
 {# v1.18 — public page opened by scanning the watermark QR (name='wm_info'). #}
 {# Standalone on purpose: anonymous read-only, no session / JS required. #}
 <html lang="fa" dir="rtl">
@@ -48,8 +48,7 @@
 <body>
   <div class="wm-card">
     <div class="wm-head">
-      <img src="{% static 'img/dana-logo.png' %}" alt="لوگوی دانا">
-      <img class="logo-sep" src="{% static 'img/hef.co.ir.png' %}" alt="لوگوی hfco">
+      {% include 'core/_brand_logos.html' with variant='plain' %}
       <div>
         <div class="wm-title">اطلاعات واترمارک تصویر</div>
         <div class="wm-sub">شناسهٔ ثبت‌شده روی تصاویر این پرونده</div>

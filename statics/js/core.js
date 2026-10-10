@@ -119,7 +119,7 @@
       if (!src || document.querySelector('.lightbox')) return;
       var lb = document.createElement('div');
       lb.className = 'lightbox';
-      lb.innerHTML = '<button class="lb-close" type="button" aria-label="بستن">✕</button>';
+      lb.innerHTML = '<button class="lb-close" type="button" aria-label="بستن">بستن</button>';
       var msg = document.createElement('div');
       msg.className = 'lb-error';
       msg.textContent = 'نمایش تصویر ممکن نشد';
@@ -668,7 +668,7 @@
         noteEl.classList.remove('ok', 'warn');
         if (!typed) { noteEl.textContent = ''; return; }
         if (d && d.label) {
-          noteEl.textContent = '✓ ' + d.label;
+          noteEl.textContent = d.label;
           noteEl.classList.add('ok');
         } else {
           noteEl.textContent = 'نام کاربری باید با حرف «p» (کارشناس) یا «د» (نماینده) شروع شود.';
