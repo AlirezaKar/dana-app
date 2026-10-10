@@ -82,6 +82,9 @@ def dana_context(request):
         # brand links (settings.BRAND_URLS) — logo links + footer
         'DANA_URL': getattr(settings, 'BRAND_URLS', {}).get('DANA_URL', 'https://www.dana-insurance.com/'),
         'HEF_URL': getattr(settings, 'BRAND_URLS', {}).get('HEF_URL', 'http://hef.co.ir'),
+        # v1.21 — the logo FILES for templates/core/_brand_logos.html (the one
+        # place that renders them; settings.BRAND_LOGOS ← .env)
+        'DANA_LOGO': getattr(settings, 'BRAND_LOGOS', {}).get('DANA_LOGO', 'img/dana-logo.png'),
         'HEF_LOGO': getattr(settings, 'BRAND_LOGOS', {}).get('HEF_LOGO', 'img/hef.co.ir.png'),
         # v1.16 — the css/js cache-buster comes from settings.STATIC_VERSION
         # (bumped per release) — the templates no longer hardcode versions.

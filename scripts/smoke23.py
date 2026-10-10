@@ -102,6 +102,13 @@ r = c.post('/login/', {'stage': '2', 'insurance_type': 'third'})
 check('login stage 2 (نوع بیمه) → 302 upload', r.status_code == 302, f'{r.status_code}')
 r = c.get('/step2-upload/')
 check('upload page 200', r.status_code == 200)
+# v1.21 — the brand logos come from ONE partial; both files must resolve on
+# every page that shows them (an empty path would render src="/static/")
+for _name, _html in (('login page', anon.get('/').content.decode()),
+                     ('upload page', r.content.decode())):
+    check(f'{_name}: both brand logos resolve',
+          'dana-logo.png' in _html and 'hef.co.ir.png' in _html
+          and 'src="/static/"' not in _html, _html[:0] or 'a logo path is empty')
 
 print('== B. resolve ==')
 r = c.post('/case/resolve/', {'file_code': '22241712'})
