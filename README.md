@@ -741,3 +741,41 @@ The native browser back button behaves like the app's back button
   through the pure-Python `arabic-reshaper` + `python-bidi` pair (installed
   via `requirements.txt`). If those packages are missing the stamp still
   renders — just unshaped — and never breaks.
+
+## Round 28 — v1.22 (consistent watermark + scannable QR page + no code on the frontend)
+
+- **The watermark is now consistent.** The stamp is built as separate transparent
+  layers (QR, logos, text) that are composited **once**, and every size is a
+  *share of the photo* (each logo 15 % of the width, the QR 10 %, the text 3.2 %
+  of the height, 2 % margin) — a 600 px thumbnail and a 12 MP photo get the exact
+  same stamp. The old absolute pixel caps (font 5–64 px) and the hand-picked
+  coordinates are gone; those were why the result looked different at different
+  resolutions. The input is normalised first (`exif_transpose` + RGBA) so phone
+  photos are never stamped sideways, and the file is saved in its **original
+  format** with DPI + ICC preserved.
+- **Config consistency.** `simple_overlay()` used to fall back to the defaults
+  while the app passed `settings.WATERMARK`, so with `WATERMARK_POSITION` set in
+  `.env` the two stamped different corners. Everything resolves through one
+  `_cfg()` now.
+- **A QR you can actually scan.** `ERROR_CORRECT_H`, a real 4-module quiet zone,
+  integer-pixel module scaling (no blurry squares) and a semi-opaque white plate
+  behind the code while the modules stay fully opaque. Verified with a real
+  decoder: it reads off the stamped photo; when a code could not possibly scan
+  (tiny photo) it is skipped and logged instead of being smeared on.
+- **The QR opens a page with everything.** The code links to the public
+  `/wm-info/` page built from the app's own address (`PUBLIC_BASE_URL` in `.env`,
+  or the address the request arrived on — so it is correct behind a proxy too).
+  The page shows **کد رایانه، شماره پرونده، نام کاربری، تاریخ و ساعت، شماره پلاک و
+  شماره بیمه نامه** (a زیان‌دیده's photos carry that party's own plate). Old
+  pre-v1.22 QR links with the long parameter names still open correctly.
+- **No codebase on the frontend.** A multi-line `{# #}` note in
+  `core/_brand_logos.html` was leaking maintainer text (settings names, paths)
+  into every page's View Source — it is a `{% comment %}` now, and the whole
+  template tree was audited for the same leak. The storage browser no longer
+  prints the absolute server path. With `DEBUG=False` you get a branded Persian
+  404/500 (no traceback); with `DEBUG=True` the Django yellow screen appears, as
+  requested. Cookies get `SameSite=Lax` in production and `ENFORCE_HTTPS=True`
+  (off by default) adds HSTS + secure cookies behind a real TLS terminator.
+- **Static caching.** In production `/static/` is served with a one-hour
+  `Cache-Control`, and the logos carry the same `?v=STATIC_VERSION` cache-buster
+  as the css/js.
