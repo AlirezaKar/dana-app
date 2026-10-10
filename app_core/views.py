@@ -6,19 +6,34 @@ from django.views.decorators.http import require_GET, require_POST
 from . import dev_settings
 
 
+#: the facts the QR code carries → how the page labels them
+#: (short arg, long arg, label) — the short names are what the new QR codes
+#: carry (every byte costs QR density); the long ones keep every photo that was
+#: stamped *before* v1.22 readable, so old URLs keep opening correctly.
+WM_INFO_FIELDS = (
+    ('c', 'code', 'کد رایانه پرونده'),
+    ('f', 'case', 'شماره پرونده'),
+    ('u', 'user', 'نام کاربری'),
+    ('t', 'at', 'تاریخ و ساعت'),
+    ('p', 'plate', 'شماره پلاک'),
+    ('i', 'policy', 'شماره بیمه نامه'),
+)
+
+
 @require_GET
 def wm_info(request):
     """Public page behind the watermark QR code (``/wm-info/``).
 
-    v1.18 — the QR stamped beside the watermark texts encodes this page's URL
-    carrying ``code`` / ``case`` / ``user`` / ``at``; scanning it shows those
-    facts together with the two logos. Read-only and anonymous by design.
+    The QR stamped on every photo encodes this page's absolute URL carrying the
+    case facts; scanning it shows all of them together with the two logos.
+    Read-only and anonymous by design — it only ever echoes back the values the
+    QR itself carried, and never touches the database.
     """
     return render(request, 'core/wm_info.html', {
-        'code': request.GET.get('code', ''),
-        'case_number': request.GET.get('case', ''),
-        'username': request.GET.get('user', ''),
-        'at': request.GET.get('at', ''),
+        'fields': [{'label': label,
+                    'value': (request.GET.get(short, '') or request.GET.get(long_, ''))
+                    .strip().replace('_', ' ')}
+                   for short, long_, label in WM_INFO_FIELDS],
     })
 
 

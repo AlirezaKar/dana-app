@@ -513,7 +513,9 @@ input.field-locked, .cb-input.field-locked {
 .plate-ir { font-size: 9px; font-weight: 700; line-height: 1.25; text-align: center; letter-spacing: 0.4px; }
 .plate-bolt { width: 5px; height: 5px; border-radius: 50%; background: #c9ced6; }
 .plate-main { flex: 1; display: flex; align-items: center; gap: 6px; padding: 10px 0 10px 10px; }
-.plate-main { padding-top: 24px; }   /* room for «ایران» above the last two digits */
+/* v1.21 — room for «ایران» above the last two digits **and** breathing space on
+   the right: the «ایران ##» box used to touch the plate's border. */
+.plate-main { padding: 24px 14px 10px 10px; }
 .plate-section { display: flex; gap: 6px; }
 .plate-digit {
   width: 42px; height: 50px;
@@ -551,17 +553,73 @@ input.field-locked, .cb-input.field-locked {
   line-height: 1;
 }
 .plate-iran .plate-digit { width: 34px; height: 50px; font-size: 1.05rem; }
+
+/* ---- v1.21 — the same plate, read-only (an info box, the done page) ---- */
+.plate-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #cfd8e0;
+  border-radius: 8px;
+  background: #f6f8fa;
+  color: #1d2a33;
+  font-weight: 700;
+  font-family: Consolas, monospace;
+}
+.plate-digit-static { width: 42px; height: 50px; font-size: 1.25rem; }
+.plate-letter-static { min-width: 110px; height: 50px; font-size: 1.05rem; }
+.plate-iran .plate-digit-static { width: 34px; height: 50px; font-size: 1.05rem; }
+/* the read-only plate is a *display* of a value: a bit smaller than the form */
+.plate-readonly { transform-origin: right center; }
+.plate-readonly .plate-digit-static { width: 34px; height: 40px; font-size: 1rem; }
+.plate-readonly .plate-letter-static { min-width: 84px; height: 40px; font-size: 0.95rem; }
+.plate-readonly .plate-iran .plate-digit-static { width: 28px; height: 40px; font-size: 0.95rem; }
+.plate-readonly .plate-main { padding: 20px 12px 8px 8px; gap: 5px; }
+.plate-readonly .plate-blue { width: 52px; }
+.plate-readonly .plate-iran-label { font-size: 10px; top: -16px; }
+/* the plate inside an info row: on its own line, right-aligned like the rest */
+.info-row-plate { display: block; }
+.info-row-plate .info-label { display: block; margin-bottom: 6px; }
+.info-row-plate .info-value { display: block; }
+.info-row-plate .plate-wrapper { display: flex; justify-content: flex-start; }
+.info-row-plate .plate { margin-left: 0; }
+
 @media (max-width: 560px) {
   .plate { border-width: 2px; border-radius: 10px; }
   .plate-blue { width: 44px; }
   .plate-ir { font-size: 7px; }
-  .plate-main { gap: 4px; padding: 8px 0 8px 8px; }
+  .plate-main { gap: 4px; padding: 20px 10px 8px 8px; }
   .plate-digit { width: 32px; height: 42px; font-size: 1rem; }
   .plate-letter { min-width: 76px; height: 42px; font-size: 0.9rem; }
   .plate-iran { padding-left: 6px; }
-  .plate-main { padding-top: 20px; }
   .plate-iran-label { font-size: 9px; top: -16px; }
   .plate-iran .plate-digit { width: 28px; height: 42px; }
+  .plate-digit-static { width: 32px; height: 42px; font-size: 1rem; }
+  .plate-letter-static { min-width: 76px; height: 42px; font-size: 0.9rem; }
+  .plate-iran .plate-digit-static { width: 28px; height: 42px; }
+}
+/* v1.21 — on a phone the whole plate (including «ایران ##») must stay visible:
+   shrink one step further and, if the screen is still too narrow, let the
+   wrapper scroll instead of cutting the last box off. */
+@media (max-width: 430px) {
+  .plate-wrapper { overflow-x: auto; padding-bottom: 4px; }
+  .plate { margin-left: 0; }
+  .plate-blue { width: 34px; padding: 6px 2px; gap: 4px; }
+  .plate-flag { width: 26px; height: 17px; }
+  .plate-ir { font-size: 6px; letter-spacing: 0; }
+  .plate-main { gap: 3px; padding: 16px 7px 7px 6px; }
+  .plate-digit { width: 26px; height: 38px; font-size: 0.9rem; border-radius: 6px; }
+  .plate-letter { min-width: 52px; height: 38px; font-size: 0.8rem; }
+  .plate-iran { padding-left: 5px; margin-left: 4px; }
+  .plate-iran .plate-digit { width: 24px; height: 38px; font-size: 0.85rem; }
+  .plate-iran-label { font-size: 8px; top: -13px; }
+  .plate-digit-static { width: 26px; height: 38px; font-size: 0.9rem; }
+  .plate-letter-static { min-width: 52px; height: 38px; font-size: 0.8rem; }
+  .plate-iran .plate-digit-static { width: 24px; height: 38px; }
+  .plate-readonly .plate-digit-static,
+  .plate-readonly .plate-iran .plate-digit-static { width: 26px; height: 36px; font-size: 0.85rem; }
+  .plate-readonly .plate-letter-static { min-width: 52px; height: 36px; font-size: 0.8rem; }
+  .plate-readonly .plate-main { padding: 15px 7px 7px 6px; }
 }
 
 /* ---------- 14. Info box (summary) ---------- */
@@ -696,6 +754,18 @@ input.field-locked, .cb-input.field-locked {
 .slot-actions .btn { padding: 8px 13px; font-size: 0.8rem; }
 .drop-hint { font-size: 0.72rem; color: #9fb0bf; margin-top: 6px; }
 .slot-area.dragover { outline: 2px dashed var(--primary); outline-offset: 4px; border-radius: 10px; }
+/* v1.21 — a single-photo field that already has its photo hides its own
+   buttons; deleting the photo brings them back (media.js toggles the class). */
+.slot-area.slot-single.slot-has-image .slot-actions { display: none; }
+/* a format the browser cannot draw (HEIC/DNG) — the file is stored as taken */
+.thumb.thumb-nopreview .thumb-meta::before {
+  content: 'پیش‌نمایش این قالب در مرورگر نمایش داده نمی‌شود';
+  display: block;
+  padding: 10px 6px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+}
 
 /* ---------- 16b. Informational badges + finish button ---------- */
 .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
@@ -774,15 +844,7 @@ input.field-locked, .cb-input.field-locked {
 .thanks { text-align: center; }
 .thanks .card-title-row { justify-content: center; }
 .thanks h2 { font-size: clamp(1.05rem, 3vw, 1.3rem); font-weight: 800; margin: 8px 0 18px; }
-.thanks-icon {
-  width: 74px; height: 74px;
-  margin: 0 auto 14px;
-  border-radius: 50%;
-  background: var(--success);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 10px color-mix(in srgb, var(--success) 15%, transparent);
-}
+/* v1.21 — icons are gone from the app; this rule is no longer used. */
 .unique-box {
   border: 2px dashed var(--primary);
   background: var(--primary-soft);
@@ -899,7 +961,6 @@ input.field-locked, .cb-input.field-locked {
   animation: popIn 0.28s ease;
 }
 @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.popup-icon { font-size: 30px; margin-bottom: 8px; }
 .popup-title { font-weight: 800; font-size: 1rem; color: var(--ink); margin: 0 0 6px; }
 .popup-sub { font-size: 0.85rem; color: var(--muted); margin: 0; }
 .popup-bar { height: 3px; background: #e6eef6; border-radius: 999px; overflow: hidden; margin-top: 14px; }
@@ -1028,7 +1089,6 @@ input.field-locked, .cb-input.field-locked {
   transform: translateY(-1px);
 }
 .folder-btn-head { display: flex; align-items: center; gap: 8px; }
-.folder-ico { color: var(--primary); display: inline-flex; }
 .folder-btn-name { font-weight: 800; font-size: 0.82rem; word-break: break-all; }
 .folder-btn-label { font-size: 0.78rem; font-weight: 700; color: var(--primary-dark); }
 .folder-btn-meta { font-size: 0.75rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 5px; }
@@ -1128,31 +1188,6 @@ input.field-locked, .cb-input.field-locked {
    ========================================================================== */
 .header-inner { }
 .site-header { position: relative; }
-.header-exit {
-  position: absolute;
-  top: 50%;
-  left: max(14px, 2vw);
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background .15s, border-color .15s;
-  z-index: 5;
-}
-.header-exit:hover { background: rgba(255, 255, 255, 0.28); border-color: #fff; color: #fff; }
-.header-exit b { font-weight: 800; }
-.header-exit-ico { font-size: 0.95rem; line-height: 1; }
-@media (max-width: 640px) {
-  .header-exit { position: static; transform: none; margin: 10px auto 0; display: flex; width: max-content; }
-}
 
 /* ---- the countdown popup ---- */
 .timeout-overlay {

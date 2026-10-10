@@ -9,8 +9,14 @@
   <div class="info-box victim-info">
     <div class="info-row"><span class="info-label">نام و نام خانوادگی</span><span class="info-value">{{ victim.full_name|default:'—' }}</span></div>
     <div class="info-row"><span class="info-label">کد ملی</span><span class="info-value mono" dir="ltr">{{ victim.national_code|default:'—' }}</span></div>
-    <div class="info-row"><span class="info-label">شماره پلاک</span><span class="info-value mono" dir="ltr">{{ victim.plate_number }}</span></div>
-    <div class="info-row"><span class="info-label">پوشهٔ ذخیره‌سازی</span><span class="info-value mono" dir="ltr">storage/files/…/{{ victim.plate_number }}/</span></div>
+    {# v1.21 — the plate exactly the way the database keeps it: the main part #}
+    {# and the «ایران ##» serial in their own boxes (one shared component).   #}
+    <div class="info-row info-row-plate">
+      <span class="info-label">شماره پلاک</span>
+      <span class="info-value">{% include 'main/_plate.html' with slots=victim.plate_slots readonly=True %}</span>
+    </div>
+    {# v1.21 — «پوشهٔ ذخیره‌سازی» is an implementation detail the end user does #}
+    {# not need (owner request): it is not displayed any more.                 #}
   </div>
 
   {% include 'main/_party_groups.html' with groups=groups party_id=victim.pk %}

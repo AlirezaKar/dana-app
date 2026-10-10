@@ -1,6 +1,8 @@
 {# ---- the three upload groups of one party (مقصر یا زیان‌دیده) (v1.14) ---- #}
 {# v1.17 — single-photo fields render as compact grid cells (one/two rows); #}
 {# the bulk field («اطراف ماشین») keeps the wide row layout.               #}
+{# v1.21 — no icons anywhere; every group confirms exactly ONCE and is then #}
+{# locked (the «پشت و رو گواهینامه و کارت ماشین» group included).          #}
 {% load jalali_tags %}
 {% for g in groups %}
 <div class="section-card group-card" data-group="{{ g.id }}" data-party="{{ party_id|default:'' }}">
@@ -13,8 +15,6 @@
       {% elif g.id == 'group_car' %}اطراف ماشین
       {% else %}{{ g.title }}{% endif %}
     </h3>
-    <span class="text-muted" style="font-size:0.78rem">
-    </span>
   </div>
 
   {% if g.timed %}
@@ -27,17 +27,21 @@
     </div>
   {% else %}
     <p class="field-hint" style="margin:0 0 8px">
-      {% if g.id == 'group_docs' %}تصاویر گواهینامه (پشت و رو) و کارت ماشین (پشت و رو) را بارگذاری کنید؛ در پایان بخش «تأیید» بزنید (امکان تأیید دوباره وجود دارد).
+      {% if g.id == 'group_docs' %}تصاویر گواهینامه (پشت و رو) و کارت ماشین (پشت و رو) را بارگذاری کنید؛ در پایان بخش «تأیید نهایی» بزنید — تأیید این بخش فقط یک‌بار امکان‌پذیر است.
       {% else %}{{ g.hint }}{% endif %}
     </p>
   {% endif %}
 
   {# ---------- single-photo fields: one compact grid ---------- #}
+  {# v1.21 — a field of this kind holds ONE photo: as soon as it has one, its   #}
+  {# own upload buttons disappear (class «slot-has-image») and come back when   #}
+  {# that photo is deleted. Per field, not per group.                           #}
   <div class="slot-grid">
   {% for slot in g.slots %}{% if not slot.multi %}
-    <div class="slot-area slot-single" data-section="{{ slot.key }}" data-party="{{ party_id|default:'' }}"
+    <div class="slot-area slot-single {% if slot.count %}slot-has-image{% endif %}"
+         data-section="{{ slot.key }}" data-party="{{ party_id|default:'' }}"
          data-min="{{ slot.min }}" data-max="{{ slot.max|default_if_none:'' }}"
-         data-group="{{ g.id }}" data-locked="{{ g.locked|yesno:'1,' }}">
+         data-group="{{ g.id }}" data-locked="{{ g.locked|yesno:'1,' }}" data-single="1">
       <p class="slot-title">{{ slot.label }}</p>
 
       <div class="thumb-grid">
@@ -50,20 +54,18 @@
               <div class="thumb-size">{{ img.size_bytes|filesizeformat }}</div>
             </div>
             {% if not g.locked %}
-            <button type="button" class="thumb-remove" data-remove="{{ img.pk }}" title="حذف">✕</button>
+            <button type="button" class="thumb-remove" data-remove="{{ img.pk }}" title="حذف این تصویر">حذف</button>
             {% endif %}
           </div>
         {% endfor %}
       </div>
 
-      {% if g.locked %}
-
-      {% else %}
-        <input type="file" accept="image/*" capture="environment" class="file-input file-camera" hidden>
-        <input type="file" accept="image/*" class="file-input file-gallery" hidden>
+      {% if not g.locked %}
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" capture="environment" class="file-input file-camera" hidden>
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" class="file-input file-gallery" hidden>
         <div class="slot-actions">
-          <button type="button" class="btn btn-accent act-camera" title="گرفتن عکس با دوربین"> دوربین</button>
-          <button type="button" class="btn btn-secondary act-gallery" title="انتخاب از گالری"> گالری</button>
+          <button type="button" class="btn btn-accent act-camera" title="گرفتن عکس با دوربین">دوربین</button>
+          <button type="button" class="btn btn-secondary act-gallery" title="انتخاب از گالری">گالری</button>
         </div>
       {% endif %}
     </div>
@@ -87,26 +89,20 @@
               <div class="thumb-size">{{ img.size_bytes|filesizeformat }}</div>
             </div>
             {% if not g.locked %}
-            <button type="button" class="thumb-remove" data-remove="{{ img.pk }}" title="حذف">✕</button>
+            <button type="button" class="thumb-remove" data-remove="{{ img.pk }}" title="حذف این تصویر">حذف</button>
             {% endif %}
           </div>
         {% endfor %}
       </div>
 
-      {% if g.locked %}
-        <div class="locked-note">
-          <span> این بخش تأیید نهایی شده است و امکان تغییر ندارد.</span>
-        </div>
-      {% else %}
-        <input type="file" accept="image/*" capture="environment" multiple class="file-input file-camera" hidden>
-        <input type="file" accept="image/*" multiple class="file-input file-gallery" hidden>
+      {# v1.21 — no «این بخش تأیید نهایی شده است…» note here: the single note  #}
+      {# with the confirmation time at the bottom of the group says it already. #}
+      {% if not g.locked %}
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" capture="environment" multiple class="file-input file-camera" hidden>
+        <input type="file" accept="{{ ACCEPT_IMAGE }}" multiple class="file-input file-gallery" hidden>
         <div class="slot-actions">
-          <button type="button" class="btn btn-accent act-camera">
-            گرفتن عکس با دوربین
-          </button>
-          <button type="button" class="btn btn-secondary act-gallery">
-            انتخاب از گالری 
-          </button>
+          <button type="button" class="btn btn-accent act-camera">گرفتن عکس با دوربین</button>
+          <button type="button" class="btn btn-secondary act-gallery">انتخاب از گالری</button>
         </div>
       {% endif %}
     </div>
@@ -122,16 +118,6 @@
               data-confirm-group="{{ g.id }}" data-party="{{ party_id|default:'' }}">
         {% if g.one_time %}تأیید نهایی تصاویر این بخش (فقط یک‌بار){% else %}تأیید این بخش{% endif %}
       </button>
-      {% if g.one_time %}
-      {% else %}
-        {% if g.confirmed_at %}
-          <div class="field-hint" style="margin-top:6px">
-            آخرین تأیید: {{ g.confirmed_at|jalali_datetime }} — پس از هر تغییر می‌توانید دوباره تأیید کنید.
-          </div>
-        {% else %}
-          
-        {% endif %}
-      {% endif %}
     {% endif %}
   </div>
 </div>

@@ -23,7 +23,8 @@ from django.views.decorators.http import require_http_methods
 
 from app_account.activity import log_activity
 from app_core.constants import INSURANCE_KEYS, INSURANCE_LABELS
-from app_core.utils.digits import normalize_code, to_en
+from app_core.utils.digits import (national_code_error, normalize_code,
+                                   normalize_national_code, to_en)
 from app_core.utils.jalali import today_jalali_str
 from app_media.constants import (GROUPS, GROUP_BY_ID, MULTI_PHOTO_SECTIONS,
                                  SECTION_MAX, SECTION_MIN, TITLE_BY_KEY)
@@ -68,31 +69,9 @@ def _refresh_reference_data():
 # --------------------------------------------------------------------------- #
 # the case finder (was «مرحله ۱ — اطلاعات», now at the top of the upload page)
 # --------------------------------------------------------------------------- #
-def build_plate_value(p):
-    """Assemble the plate component into (plate, serial) — Excel sample format."""
-    def d(name):
-        return to_en(p.get(name, '') or '').strip()
-
-    letter = (p.get('plate_letter', '') or '').strip()
-    d1, d2, d3, d4, d5 = d('plate_d1'), d('plate_d2'), d('plate_d3'), d('plate_d4'), d('plate_d5')
-    ir1, ir2 = d('plate_ir1'), d('plate_ir2')
-    plate = f'{d1}{d2}{letter}{d3}{d4}{d5}' if (d1 and d2 and letter and d3 and d4 and d5) else ''
-    serial = f'{ir1}{ir2}' if (ir1 and ir2) else ''
-    return plate, serial
-
-
-def plate_slots(plate_value, plate_serial=''):
-    slots = {'plate_d1': '', 'plate_d2': '', 'plate_letter': '', 'plate_d3': '',
-             'plate_d4': '', 'plate_d5': '', 'plate_ir1': '', 'plate_ir2': ''}
-    main = (plate_value or '').split('-')[0]
-    if len(main) >= 6:
-        slots['plate_d1'], slots['plate_d2'] = main[0], main[1]
-        slots['plate_letter'] = main[2]
-        slots['plate_d3'], slots['plate_d4'], slots['plate_d5'] = main[3], main[4], main[5]
-    serial = (plate_serial or '').replace('-', '')
-    if len(serial) >= 2:
-        slots['plate_ir1'], slots['plate_ir2'] = serial[0], serial[1]
-    return slots
+# v1.21 — the plate helpers moved to app_core.utils.plate (the models need them
+# too); they are re-exported here so existing imports keep working.
+from app_core.utils.plate import build_plate_value, plate_slots  # noqa: E402,F401
 
 
 def resolve_record(file_code, pick_id=None, branch_codes=None, insurance=None):
@@ -156,10 +135,12 @@ def _owner_images(owner):
 
 
 def _group_state(owner, group):
+    """(confirmed, locked, confirmed_at) — v1.21: **every** group is one-time,
+    so a confirmed group is a locked group (the docs group included)."""
     gid = group['id']
     if gid == 'group_docs':
         at = getattr(owner, 'docs_confirmed_at', None)
-        return bool(at), False, at
+        return bool(at), bool(at), at
     if gid == 'group_plates':
         done = bool(getattr(owner, 'plates_confirmed', False))
         return done, done, getattr(owner, 'plates_confirmed_at', None)
@@ -217,6 +198,7 @@ def _finder_context(request, submission):
         'file_code': (submission.entered_file_code if submission else '')
                      or (submission.any_record.computer_code if submission and submission.any_record else ''),
         'plate_changed': bool(submission.plate_changed) if submission else False,
+        'has_krokki': bool(submission.has_krokki) if submission else False,
     }
     insurance = (submission.insurance_type if submission
                  else (request.session.get('login_state') or {}).get('insurance_type', ''))
@@ -283,6 +265,7 @@ def resolve_case(request):
     p = request.POST
     file_code = (p.get('file_code', '') or '').strip()
     plate_changed = p.get('plate_changed') == 'on'
+    has_krokki = p.get('has_krokki') == 'on'
     plate_value, plate_serial = build_plate_value(p)
 
     submission = _own_submission(request)
@@ -332,6 +315,7 @@ def resolve_case(request):
         fake['finder_state'].update({
             'file_code': file_code,
             'plate_changed': plate_changed,
+            'has_krokki': has_krokki,
         })
         ctx.update(fake)
         return render(request, 'main/upload.html', ctx)
@@ -366,13 +350,12 @@ def resolve_case(request):
         submission.record_third = record
         submission.record = None
     submission.entered_file_code = file_code
-    submission.entered_national_code = ''
-    submission.entered_vin = ''
-    submission.entered_policy_number = ''
-    submission.entered_plate_number = ''
+    # v1.21 — nothing else is copied out of the Excel tables: the record
+    # reference (record / record_third) is the source of every other value.
     submission.plate_changed = plate_changed
     submission.plate_value = plate_value if plate_changed else ''
     submission.plate_serial = plate_serial if plate_changed else ''
+    submission.has_krokki = has_krokki
     is_edit = submission.pk is not None
     if submission.finished_at is None:
         submission.save()
@@ -418,20 +401,37 @@ def add_victim(request):
     def g(key):
         return (data.get(key, '') or '').strip()
 
-    plate = g('plate_number')
+    # ---- plate: the «ایران ##» part is stored on its own (like the tables) -- #
+    plate = to_en(g('plate_number'))
+    plate_serial = to_en(g('plate_serial'))
+    if not plate_serial and '-' in plate:      # tolerate the combined «94س225-63»
+        plate, _, plate_serial = plate.partition('-')
+    plate, plate_serial = plate.strip(), plate_serial.strip()
     if not plate:
         return JsonResponse({'ok': False, 'error': '«شماره پلاک» زیان‌دیده الزامی است.'}, status=400)
+    if len(plate) > 32:
+        return JsonResponse({'ok': False, 'error': '«شماره پلاک» معتبر نیست.'}, status=400)
+    if plate_serial and not plate_serial.isdigit():
+        return JsonResponse({'ok': False,
+                             'error': 'بخش «ایران» شماره پلاک باید فقط عدد باشد.'}, status=400)
     if sub.victims.filter(plate_number=plate).exists():
         return JsonResponse({'ok': False,
                              'error': 'زیان‌دیده‌ای با این شماره پلاک قبلاً ثبت شده است.'},
                             status=400)
 
+    # ---- «کد ملی»: exactly ten digits (optional, but never anything else) -- #
+    national_code = normalize_national_code(g('national_code'))
+    error = national_code_error(national_code)
+    if error:
+        return JsonResponse({'ok': False, 'error': error}, status=400)
+
     party = DamagedParty.objects.create(
         submission=sub,
         first_name=g('first_name'),
         last_name=g('last_name'),
-        national_code=g('national_code'),
+        national_code=national_code,
         plate_number=plate,
+        plate_serial=plate_serial,
     )
     folder = storage.ensure_dir(storage.party_dir(sub, party))
     log_activity('case_edit', request=request, method='POST',
@@ -444,7 +444,8 @@ def add_victim(request):
         'car_max_span': dev_settings.get(request, 'CAR_IMAGE_MAX_SPAN_MINUTES'),
     }, request=request)
     return JsonResponse({'ok': True, 'victim': {
-        'id': party.pk, 'plate': party.plate_number, 'label': party.label,
+        'id': party.pk, 'plate': party.plate_number, 'plate_serial': party.plate_serial,
+        'plate_full': party.plate_full, 'label': party.label,
         'full_name': party.full_name, 'national_code': party.national_code,
         'folder': str(folder),
     }, 'html': html})
@@ -527,7 +528,9 @@ def finish(request):
     if submission.finished_at:
         return redirect('step3_done')
 
-    errors = _check_owner(request, submission, 'مقصر')
+    errors = []
+    if not submission.has_krokki:
+        errors += _check_owner(request, submission, 'مقصر')
     for v in submission.victims.all():
         errors += _check_owner(request, v, f'زیان‌دیده {v.plate_number}')
     if errors:
@@ -558,8 +561,9 @@ def finish(request):
     watermarked = 0
     try:
         from app_media.services import watermark as wm
+        from app_core.utils.site import absolute_base_url
         watermarked = wm.run_simple_for_submission(
-            submission, base_url=request.build_absolute_uri('/'))
+            submission, base_url=absolute_base_url(request))
     except Exception:                       # never block the finalize step
         watermarked = 0
 
@@ -592,6 +596,7 @@ def done_page(request):
         'folder': storage.case_dir(submission),
         'folder_rel': str(storage.case_dir(submission).relative_to(storage.root())).replace('\\', '/'),
         'atfault_groups': groups_context(submission, dev_gap),
+        'atfault_total': submission.images.filter(party__isnull=True).count(),
         'victims': [{'obj': v, 'groups': groups_context(v, dev_gap)}
                     for v in submission.victims.all()],
         'image_total': submission.images.count(),

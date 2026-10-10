@@ -14,18 +14,30 @@ from django.db import models
 
 
 class Branch(models.Model):
-    """شعبه — the «branch id» model. Rows are created from the Excel «کد شعبه»."""
+    """شعبه — the «branch id» model. Rows are created from the Excel «کد شعبه».
+
+    v1.21 — **the name of a branch *is* its code**: the Excel column carries the
+    branch name and that very value is used as the key everywhere, so ``title``
+    is kept equal to ``code`` (``save()`` mirrors it) and the admin/list shows
+    one value instead of two that could drift apart. Filtering still happens on
+    ``branch_code`` exactly as before.
+    """
 
     code = models.CharField('کد شعبه', max_length=32, unique=True)
-    title = models.CharField('عنوان شعبه', max_length=120, blank=True)
+    title = models.CharField('عنوان شعبه', max_length=120, blank=True,
+                             help_text='همیشه همان «کد شعبه» — به‌صورت خودکار همسان می‌شود.')
 
     class Meta:
         verbose_name = 'شعبه'
         verbose_name_plural = 'شعبه‌ها'
         ordering = ['code']
 
+    def save(self, *args, **kwargs):
+        self.title = self.code            # name == code, by construction
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f'{self.code}' + (f' — {self.title}' if self.title else '')
+        return f'{self.code}'
 
 
 class BaseCaseRecord(models.Model):
@@ -286,10 +298,20 @@ def find_by_value(insurance_type, field, value, branch_codes=None):
 
 
 def sync_branches():
-    """Create/update the Branch rows from the «کد شعبه» values of both tables."""
+    """Create/update the Branch rows from the «کد شعبه» values of both tables.
+
+    The name of a branch is its code (v1.21), so an existing row whose ``title``
+    drifted away from its ``code`` is brought back in line here.
+    """
     codes = set(BodyInsurance.objects.exclude(branch_code='').values_list('branch_code', flat=True))
     codes |= set(ThirdPartyInsurance.objects.exclude(branch_code='')
                  .values_list('branch_code', flat=True))
     for code in sorted(codes):
-        Branch.objects.get_or_create(code=code)
+        branch, _created = Branch.objects.get_or_create(code=code)
+        if branch.title != branch.code:
+            branch.save(update_fields=['title'])
+    # rows whose code is no longer present in either table keep their title in
+    # sync too (they are still selectable for an account)
+    for branch in Branch.objects.exclude(title=models.F('code')):
+        branch.save(update_fields=['title'])
     return codes

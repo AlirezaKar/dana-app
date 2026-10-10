@@ -1,25 +1,20 @@
 {% extends "base.html" %}
-{% load static %}
 {% load jalali_tags %}
 {% block title %}پایان — تشکر{% endblock %}
 {% block content %}
 
 <div class="steps">
-  <div class="step done"><span class="step-num">✓</span><span class="step-label">اطلاعات</span></div>
+  <div class="step done"><span class="step-num">۱</span><span class="step-label">اطلاعات</span></div>
   <div class="step-line done"></div>
-  <div class="step done"><span class="step-num">✓</span><span class="step-label">آپلود</span></div>
+  <div class="step done"><span class="step-num">۲</span><span class="step-label">آپلود</span></div>
   <div class="step-line done"></div>
   <div class="step done"><span class="step-num">۳</span><span class="step-label">پایان</span></div>
 </div>
 
 <div class="card thanks">
   <span class="thanks-logos">
-    <a href="{{ DANA_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/dana-logo.png' %}" alt="بیمه دانا"></a>
-    <a href="{{ HEF_URL }}" target="_blank" rel="noopener"><img src="{% static 'img/hef.co.ir.png' %}" alt="هوشمند ارتباط فرادید"></a>
+    {% include 'core/_brand_logos.html' with variant='thanks' %}
   </span>
-  <div class="thanks-icon">
-    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3"><path d="M20 6 9 17l-5-5"/></svg>
-  </div>
   <h2>با تشکر، پرونده با موفقیت ثبت شد!</h2>
 
   <div class="unique-box">
@@ -37,7 +32,12 @@
     <h3 class="done-title">اطلاعات ثبت پرونده</h3>
     <div class="info-box" style="display:block">
       <div class="info-row"><span class="info-label">نام و نام خانوادگی</span><span class="info-value">{{ case.effective_name|default:'—' }}</span></div>
-      <div class="info-row"><span class="info-label">شماره پلاک</span><span class="info-value mono" dir="ltr">{{ case.effective_plate|default:'—' }}</span></div>
+      {# v1.21 — the plate the way the DB keeps it: main part + «ایران ##» in #}
+      {# their own boxes (the one shared plate component, read-only).         #}
+      <div class="info-row info-row-plate">
+        <span class="info-label">شماره پلاک</span>
+        <span class="info-value">{% include 'main/_plate.html' with slots=case.plate_slots readonly=True %}</span>
+      </div>
       <div class="info-row"><span class="info-label">کد رایانه پرونده</span><span class="info-value mono">{{ case.computer_code|default:'—' }}</span></div>
       {% if case.any_record %}
       <div class="info-row"><span class="info-label">شماره پرونده</span><span class="info-value">{{ case.any_record.case_number }}</span></div>
@@ -46,7 +46,6 @@
       <div class="info-row"><span class="info-label">نوع کاربری</span><span class="info-value">{{ case.user_type_label }}{% if case.auth_username %} — <span class="mono">{{ case.auth_username }}</span>{% endif %}</span></div>
       <div class="info-row"><span class="info-label">شناسهٔ یافت‌شده با</span><span class="info-value">{{ matched_by_label|default:'—' }}</span></div>
       <div class="info-row"><span class="info-label">تاریخ ثبت</span><span class="info-value">{{ case.finished_at|jalali_datetime }}</span></div>
-      <div class="info-row"><span class="info-label">پوشهٔ ذخیره‌سازی</span><span class="info-value mono" dir="ltr">{{ folder_rel }}/</span></div>
       <div class="info-row"><span class="info-label">تعداد تصاویر</span><span class="info-value">{{ image_total }} تصویر</span></div>
     </div>
   </div>
@@ -69,6 +68,7 @@
   <div class="done-section">
     <h3 class="done-title">تصاویر بارگذاری‌شده ({{ image_total }})</h3>
     {% if image_total %}
+      {% if atfault_total %}
       <div class="gallery-group">
         <h4>تصاویر مقصر</h4>
         {% for g in atfault_groups %}
@@ -90,6 +90,7 @@
           {% endfor %}
         {% endfor %}
       </div>
+      {% endif %}
 
       {% for v in victims %}
       <div class="gallery-group">

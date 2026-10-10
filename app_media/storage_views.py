@@ -3,7 +3,7 @@
 The small «مشاهدهٔ پوشهٔ ذخیره‌سازی» button next to the badges of the **نوع بیمه**
 page (stage 2) opens ``/media/storage/`` in a new tab:
 
-    /media/storage/                       فهرست محتویات storage/tmp
+    /media/storage/                       فهرست پرونده‌های پایان‌یافته
     /media/storage/folder/<path>/         جزئیات یک پوشه (پوشه‌های داخلی + فایل‌ها)
     /media/storage/raw/<path>             نمایش/دانلود یک فایل
 
@@ -35,8 +35,9 @@ from app_media.constants import TITLE_BY_KEY
 from .services import storage
 
 IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff'}
-#: the two levels of the working area get their own Persian labels
-FOLDER_LABELS = {'tmp': 'پوشهٔ موقت (در حال کار)'}
+#: well-known folder names get their own Persian label (v1.21 — «tmp» is gone:
+#: there are no temporary folders any more)
+FOLDER_LABELS = {}
 #: never listed (system noise)
 SKIP_NAMES = {'.DS_Store', 'Thumbs.db', '.gitkeep'}
 
@@ -290,14 +291,14 @@ def _raw_url(subpath: str) -> str:
 # ------------------------------------------------------------------ views ----
 @_access_required
 def storage_index(request):
-    """Content of ``storage/files`` — the case folders of the logged-in user (v1.14)."""
+    """Content of ``storage/files`` — the case folders of the logged-in user.
+
+    v1.21 — the «پوشه‌های موقت» (``storage/tmp``) section is gone: every photo is
+    written straight into its final case folder, so there is nothing temporary
+    left to list (owner request).
+    """
     root = _root()
     username = _session_username(request)
-    tmp = root / 'tmp'
-    tmp_folders, tmp_files = _listing(tmp) if tmp.exists() else ([], [])
-    all_files = _walk_files(tmp) if tmp.exists() else []
-    total_size = sum(f.stat().st_size for f in all_files)
-    newest = max([f.stat().st_mtime for f in all_files], default=None)
 
     # the finished cases live in ``storage/files/<date>/<کد رایانه>-<username>``
     # (v1.14); only the folders that **end with the logged-in username** are
@@ -323,15 +324,13 @@ def storage_index(request):
 
     data_files = [_file_entry(f) for f in _children(root / 'data')] if (root / 'data').is_dir() else []
 
+    case_files = [f for entry in final_cases for f in _walk_files(root / entry['rel'])]
+    total_size = sum(f.stat().st_size for f in case_files)
+    newest = max([f.stat().st_mtime for f in case_files], default=None)
     return render(request, 'media/storage_index.html', {
-        'tmp_path': str(tmp),
-        'tmp_exists': tmp.exists(),
-        'folders': tmp_folders,
-        'files': tmp_files,
-        'all_files': [_file_entry(f) for f in all_files],
         'summary': {
-            'folders': len(tmp_folders),
-            'files': len(all_files),
+            'folders': len(final_cases) + len(final_folders),
+            'files': len(case_files),
             'size': human_size(total_size),
             'newest': _jalali_time(newest) if newest else '—',
         },

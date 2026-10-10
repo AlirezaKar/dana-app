@@ -1,7 +1,8 @@
 /* ===========================================================================
    DANA — upload page behavior (app_media, v1.14)
-   - G1 «پشت و رو گواهینامه و کارت ماشین»: bulk uploads + a **repeatable**
-     confirm button (no timer)
+   - G1 «پشت و رو گواهینامه و کارت ماشین»: bulk uploads + a confirm button
+     with **no timer**; v1.21 — like the other two it is ONE-time, so after it
+     the group is locked and its buttons are gone
    - G2 «شماره شاسی و پلاک‌ها» / G3 «اطراف ماشین»: bulk uploads + ONE final
      confirm button which runs the timing validation server-side
    - the same three groups for «مقصر» and for every زیان‌دیده (added with
@@ -55,6 +56,15 @@
       cancelBtn.addEventListener('click', function () { closeVictimForm(); });
     }
 
+    /* «کد ملی» takes digits only — Persian digits are converted as you type */
+    var ncInput = document.getElementById('vf_national_code');
+    if (ncInput) {
+      ncInput.addEventListener('input', function () {
+        var cleaned = DANA.toEn(ncInput.value).replace(/\D/g, '').slice(0, 10);
+        if (cleaned !== ncInput.value) ncInput.value = cleaned;
+      });
+    }
+
     var saveBtn = document.getElementById('victim-save-btn');
     if (saveBtn) {
       saveBtn.addEventListener('click', function () {
@@ -63,6 +73,10 @@
           DANA.toast('«شماره پلاک» زیان‌دیده را کامل وارد کنید (۲ رقم، حرف، ۳ رقم).', true);
           return;
         }
+        var ncError = DANA.nationalCodeError
+          ? DANA.nationalCodeError((document.getElementById('vf_national_code') || {}).value)
+          : '';
+        if (ncError) { DANA.toast(ncError, true, 5000); return; }
         saveBtn.disabled = true;
         fetch('/victim/add/', {
           method: 'POST',
@@ -74,14 +88,17 @@
           body: JSON.stringify({
             first_name: ((document.getElementById('vf_first_name') || {}).value || '').trim(),
             last_name: ((document.getElementById('vf_last_name') || {}).value || '').trim(),
-            national_code: ((document.getElementById('vf_national_code') || {}).value || '').trim(),
-            plate_number: composed.value,
+            national_code: DANA.toEn(((document.getElementById('vf_national_code') || {}).value || '')).trim(),
+            // v1.21 — the «ایران ##» part travels (and is stored) on its own
+            plate_number: composed.plate,
+            plate_serial: composed.serial,
           }),
         })
           .then(function (r) { return r.json().then(function (d) { return [r.status, d]; }); })
           .then(function (pair) {
             saveBtn.disabled = false;
             var data = pair[1] || {};
+            if (DANA.sessionExpired({ status: pair[0] }, data)) { DANA.gotoLogin(); return; }
             if (!data.ok) {
               DANA.toast(data.error || 'ثبت زیان‌دیده ناموفق بود', true);
               return;
@@ -120,8 +137,10 @@
         headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
         body: body.toString(),
       })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
+        .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+        .then(function (pair) {
+          if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+          var data = pair[1];
           if (!data || data.ok === false) {
             btn.disabled = false;
             DANA.toast((data && data.error) || 'حذف ناموفق بود', true);
@@ -151,6 +170,16 @@
     }
   };
 
+  /* ---- v1.21 — HEIC/HEIF/DNG cannot be decoded by a browser: show a note
+     instead of a broken image (the file itself is stored untouched). ---- */
+  document.addEventListener('error', function (e) {
+    var el = e.target;
+    if (el && el.tagName === 'IMG' && el.closest) {
+      var thumb = el.closest('.thumb');
+      if (thumb) { thumb.classList.add('thumb-nopreview'); el.style.display = 'none'; }
+    }
+  }, true);
+
   /* =========================================================================
      One upload area (a field of a group) — bulk uploads, remove, drag&drop.
      Idempotent: every element is wired at most once, so freshly inserted
@@ -160,6 +189,24 @@
     root = root || document;
     var csrf = DANA.csrf();
 
+    /* ---- accepted formats (v1.21) — the same list the server enforces ---- */
+    var OK_EXT = /\.(jpe?g|png|heic|heif|dng)$/i;
+    var OK_TYPE = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic',
+                   'image/heif', 'image/x-adobe-dng'];
+    function accepted(file) {
+      if (!file) return false;
+      if (OK_EXT.test(file.name || '')) return true;
+      return OK_TYPE.indexOf((file.type || '').toLowerCase()) >= 0;
+    }
+
+    /* ---- single-photo fields: buttons hide while the photo is there ---- */
+    function syncSlot(area) {
+      if (!area || area.dataset.single !== '1') return;
+      var filled = area.querySelectorAll('.thumb').length > 0;
+      area.classList.toggle('slot-has-image', filled);
+    }
+    DANA.syncSlot = syncSlot;
+
     function makeThumb(img, area) {
       var locked = area.dataset.locked === '1';
       var el = document.createElement('div');
@@ -168,7 +215,7 @@
       el.innerHTML =
         '<img src="' + img.url + '" alt="" data-lightbox="' + img.url + '">' +
         '<div class="thumb-meta"><div class="thumb-name"></div><div class="thumb-size"></div></div>' +
-        (locked ? '' : '<button type="button" class="thumb-remove" title="حذف">✕</button>');
+        (locked ? '' : '<button type="button" class="thumb-remove" title="حذف این تصویر">حذف</button>');
       el.querySelector('.thumb-name').textContent = img.name;
       el.querySelector('.thumb-size').textContent = DANA.formatSize(img.size);
       var rm = el.querySelector('.thumb-remove');
@@ -177,14 +224,17 @@
           if (!confirm('این تصویر حذف شود؟')) return;
           rm.disabled = true;
           fetch('/media/remove/' + img.id + '/', { method: 'POST', headers: { 'X-CSRFToken': csrf } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
+            .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+            .then(function (pair) {
+              if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+              var data = pair[1];
               if (data && data.ok === false) {
                 rm.disabled = false;
                 DANA.toast(data.error || 'حذف تصویر ناموفق بود', true);
                 return;
               }
               el.remove();
+              syncSlot(area);
             })
             .catch(function () {
               rm.disabled = false;
@@ -200,6 +250,14 @@
         DANA.toast('این بخش تأیید نهایی شده است.', true);
         return;
       }
+      if (!accepted(file)) {
+        DANA.toast('قالب فایل پذیرفته نیست — فقط JPG/JPEG، PNG، HEIC/HEIF و DNG (RAW) مجاز است.', true, 5000);
+        return;
+      }
+      if (area.dataset.single === '1' && area.querySelector('.thumb')) {
+        DANA.toast('برای این مورد قبلاً تصویر بارگذاری شده است؛ برای جایگزینی ابتدا آن را حذف کنید.', true, 5000);
+        return;
+      }
       var grid = area.querySelector('.thumb-grid');
       var ph = document.createElement('div');
       ph.className = 'thumb uploading';
@@ -211,11 +269,14 @@
       fd.append('section', area.dataset.section);
       if (area.dataset.party) fd.append('party', area.dataset.party);
       fetch('/media/upload/', { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: fd })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
+        .then(function (res) { return res.json().then(function (d) { return [res, d]; }); })
+        .then(function (pair) {
           ph.remove();
+          if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+          var data = pair[1];
           if (!data.ok) { DANA.toast(data.error || 'آپلود ناموفق بود', true, 5000); return; }
           grid.appendChild(makeThumb(data.image, area));
+          syncSlot(area);
         })
         .catch(function () {
           ph.remove();
@@ -236,15 +297,22 @@
           if (!confirm('این تصویر حذف شود؟')) return;
           rm.disabled = true;
           fetch('/media/remove/' + rm.dataset.remove + '/', { method: 'POST', headers: { 'X-CSRFToken': csrf } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
+            .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+            .then(function (pair) {
+              if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+              var data = pair[1];
               if (data && data.ok === false) {
                 rm.disabled = false;
                 DANA.toast(data.error || 'حذف تصویر ناموفق بود', true);
                 return;
               }
+              // v1.21 — grab the slot BEFORE detaching the thumbnail: once the
+              // button is out of the document `rm.closest('.slot-area')` is null
+              // and the upload buttons never came back (owner bug report).
+              var area = rm.closest('.slot-area');
               var thumb = rm.closest('.thumb');
               if (thumb) thumb.remove();
+              syncSlot(area);
             })
             .catch(function () {
               rm.disabled = false;
@@ -274,9 +342,7 @@
         area.addEventListener(ev, function (e) { e.preventDefault(); area.classList.remove('dragover'); });
       });
       area.addEventListener('drop', function (e) {
-        Array.prototype.forEach.call(e.dataTransfer.files, function (f) {
-          if (f.type && f.type.indexOf('image/') === 0) uploadFile(f, area);
-        });
+        Array.prototype.forEach.call(e.dataTransfer.files, function (f) { uploadFile(f, area); });
       });
     });
 
@@ -303,8 +369,10 @@
           },
           body: body.toString(),
         })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
+          .then(function (r) { return r.json().then(function (d) { return [r, d]; }); })
+          .then(function (pair) {
+            if (DANA.sessionExpired(pair[0], pair[1])) { DANA.gotoLogin(); return; }
+            var data = pair[1];
             if (data.ok) {
               // v1.17 (owner): NO popup on success — a small toast for every
               // group (the popup belongs only to the timing-cancel error).
@@ -317,7 +385,6 @@
             if (data.car_group_reset) {
               // «زمان زیادی طول کشید!» — the ONLY popup left for uploads.
               DANA.popup({
-                icon: '⏱',
                 danger: true,
                 title: 'زمان زیادی طول کشید!',
                 sub: data.message || 'تصاویر این بخش حذف شدند؛ بقیهٔ تصاویر شما حفظ شده‌اند.',
@@ -329,7 +396,10 @@
               var grp = btn.dataset.confirmGroup || '';
               var sel = '.slot-area[data-group="' + grp + '"]';
               if (btn.dataset.party) sel += '[data-party="' + btn.dataset.party + '"]';
-              document.querySelectorAll(sel + ' .thumb').forEach(function (t) { t.remove(); });
+              document.querySelectorAll(sel).forEach(function (a) {
+                a.querySelectorAll('.thumb').forEach(function (t) { t.remove(); });
+                syncSlot(a);
+              });
               return;
             }
             DANA.toast(data.already

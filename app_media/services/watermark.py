@@ -63,15 +63,25 @@ DEFAULTS = {
     'SCALE': 1.0,                   # 1.0 = default size (font ≈ 2.6 % of the short side)
     'MIN_WIDTH_FRACTION': 0.55,     # stamp is never wider than this share of the image
     'MAX_HEIGHT_FRACTION': 0.38,    # … nor taller than this share of the height
-    'LINE_SPACING': 1.35,
+    'LINE_SPACING': 1.45,
     'LOGOS': ['img/dana-logo.png', 'img/hef.co.ir.png'],
-    'LOGO_HEIGHT_FRACTION': 0.055,  # logo height = 5.5 % of the image height
-    'MARGIN_FRACTION': 0.022,       # distance from the image border
+    'LOGO_HEIGHT_FRACTION': 0.055,  # (legacy stamp) logo height = 5.5 % of height
+    # v1.22 — the simple stamp sizes everything as a share of the photo, so a
+    # 600 px thumbnail and a 12 MP photo get exactly the same stamp.
+    'LOGO_WIDTH_FRACTION': 0.15,    # each logo = 15 % of the photo's width
+    'QR_SIZE_FRACTION': 0.10,       # the QR code = 10 % of the photo's width
+    'FONT_HEIGHT_FRACTION': 0.032,  # the text = 3.2 % of the photo's height
+    'MARGIN_FRACTION': 0.02,        # 2 % of the width from the border
     'JPEG_QUALITY': 95,
     'QR_MIN_SIDE': 88,   # smaller QRs are unscannable — skipped entirely
+    'QR_QUIET_ZONE': 4,  # modules of white around the matrix (the QR spec)
+    'QR_MIN_MODULE_PX': 3,   # pixels per module — below this it will not scan
+    'QR_MAX_WIDTH_FRACTION': 0.45,  # … and never wider than this share of the photo
+    'QR_BACKING_ALPHA': 205,   # the white plate behind the QR (semi-opaque)
     'QR_ENABLED': True,          # v1.20 — .env toggle for the QR code
     'CUSTOM_TEXT': '',           # v1.20 — free text stamped under the values
     'CUSTOM_TEXT_ENABLED': True, # v1.20 — .env toggle for the custom text
+    'LABELS_ENABLED': True,      # v1.22 — Persian label in front of each value
     # every line of the stamp (logos cannot be text) is written into the image's
     # comment/metadata block as well — Windows: Properties → Details → Comments
     'WRITE_COMMENT': True,
@@ -96,7 +106,10 @@ def config() -> dict:
 
 
 #: file extensions treated as photos
-IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff'}
+#: (v1.21 — HEIC/HEIF/DNG belong to the accepted uploads; Pillow cannot open
+#: them, so the stamping step skips those files.)
+IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff',
+                  '.heic', '.heif', '.dng'}
 
 
 #: Pillow format → the extension we save it with
@@ -255,11 +268,14 @@ class WatermarkInfo:
             plate = f'{number}-{serial}' if (number and serial) else (number or serial)
             policy = ((getattr(record, 'policy_number', '') if body
                        else getattr(record, 'atfault_policy_number', '') or '').strip())
-        plate = plate or getattr(submission, 'plate_value', '') \
-            or getattr(submission, 'entered_plate_number', '') or ''
+        plate = plate or getattr(submission, 'plate_value', '') or ''
         if party is not None:
-            plate = (getattr(party, 'plate_number', '') or '').strip() or plate
-        policy = policy or getattr(submission, 'entered_policy_number', '')
+            # v1.21 — a زیان‌دیده keeps its plate the way the tables do: the
+            # main part + the «ایران ##» serial, shown here as «94س225-63».
+            number = (getattr(party, 'plate_number', '') or '').strip()
+            serial = (getattr(party, 'plate_serial', '') or '').strip()
+            if number:
+                plate = f'{number}-{serial}' if serial else number
         return cls(
             username=username or getattr(submission, 'auth_username', ''),
             computer_code=(getattr(submission, 'entered_file_code', '')
@@ -700,8 +716,22 @@ def write_comment_file(path, info: WatermarkInfo, cfg: dict | None = None, dest=
 # when the upload is finalized. The code is plain ASCII digits, so the stamp
 # never depends on the broken Arabic shaping of the environment.
 # =========================================================================== #
+#: the facts carried by the QR → the query argument they travel as.
+#: Single-letter names and compact values on purpose: **every character makes
+#: the QR denser**, and a denser QR needs more pixels to stay scannable.
+QR_PARAMS = (('code', 'c'), ('case_number', 'f'), ('username', 'u'),
+             ('at', 't'), ('plate', 'p'), ('policy', 'i'))
+
+
 def _wm_info_url(info: dict) -> str:
-    """The public ``wm_info`` URL encoding every stamped fact (empty → no QR)."""
+    """The absolute URL of the public ``/wm-info/`` page (empty → no QR).
+
+    The URL has to work on a phone that knows nothing about the request that
+    produced it, so it is built from the app's own address
+    (``app_core.utils.site.absolute_base_url`` — ``PUBLIC_BASE_URL`` first, then
+    the address the request arrived on). Facts with no value are left out, and
+    the digits are ASCII: both keep the QR small enough to stamp legibly.
+    """
     from urllib.parse import urlencode
 
     from django.urls import reverse
@@ -709,51 +739,113 @@ def _wm_info_url(info: dict) -> str:
     base = str(info.get('base_url') or '').strip().rstrip('/')
     if not base:
         return ''
+    if '://' not in base:                    # a bare host is not a scannable URL
+        base = f'http://{base}'
     try:
         page = reverse('wm_info')
     except Exception:
         return ''
     from app_core.utils.digits import to_en
 
-    # ASCII digits keep the URL short (Persian digits blow up the QR density)
-    query = urlencode({
-        'code': to_en(str(info.get('code') or '')),
-        'case': to_en(str(info.get('case_number') or '')),
-        'user': str(info.get('username') or ''),
-        'at': to_en(str(info.get('at') or '')),
-    })
-    return f'{base}{page}?{query}'
+    facts = {}
+    for key, arg in QR_PARAMS:
+        value = to_en(str(info.get(key) or '').strip())
+        if not value:
+            continue
+        if key == 'at':
+            # «۱۴۰۳/۱۱/۰۵ ۱۴:۳۲» → «1403-11-05_1432»: no character that the URL
+            # would have to percent-encode (%2F is three bytes of QR for one)
+            value = (value.replace('/', '-').replace(' ', '_')
+                     .replace(':', '').replace('٫', ''))
+        facts[arg] = value
+    return f'{base}{page}?{urlencode(facts)}'
 
 
-def _qr_image(url: str, side: int):
-    """A ``side``×``side`` RGBA QR of ``url`` — or ``None`` when anything fails.
+# =========================================================================== #
+# the stamp, assembled from layers (v1.22)
+#
+# Owner report: «the watermark script is inconsistent and buggy — sometimes the
+# results aren't what I expected».
+#
+# The old code drew every element straight onto the photo from hand-picked
+# coordinates, capped the font at an absolute 5..64 px and resampled the QR with
+# a smooth filter, so the same stamp looked different at every resolution and
+# the QR often stopped scanning. The stamp is now built the consistent way:
+#
+#   * every element (QR, logos, text) is drawn on **its own transparent layer**;
+#   * every size is a **share of the photo** (logo 15 % of the width, QR 10 %,
+#     font 3.2 % of the height, margin 2 %) — never a pixel count;
+#   * one anchor helper places the assembled block (corner + margin);
+#   * the layers are composited **once** onto the photo with alpha_composite.
+# =========================================================================== #
+def _cfg(cfg: dict | None = None) -> dict:
+    """The config in force — the ONE way to resolve it.
 
-    v1.18 — **totally optional**: the ``qrcode`` package may be missing and any
-    rendering error must stay invisible to the text watermark.
+    v1.22 — ``simple_overlay(size, code)`` used to fall back to :data:`DEFAULTS`
+    while the app itself passed ``config()`` (``settings.WATERMARK`` over the
+    defaults). With ``WATERMARK_POSITION=bottom-left`` in `.env` the two then
+    stamped *different corners*, which is exactly the "inconsistent" the owner
+    saw. Everything resolves through here now.
     """
-    if not url or side < 24:
-        return None
-    try:
-        import qrcode
-    except Exception:
-        # v1.19.1 — never silent: the console/activity log says WHY the QR is
-        # missing (the text watermark is stamped regardless, by design).
-        logger.warning(
-            'qrcode package is not installed — the watermark QR was skipped '
-            '(optional). Install it with: pip install "qrcode[pil]"')
-        return None
-    try:
-        qr = qrcode.QRCode(border=1, box_size=6,
-                           error_correction=qrcode.constants.ERROR_CORRECT_M)
-        qr.add_data(url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color='black', back_color='white')
-        img = img.convert('RGBA')
-        return img.resize((side, side))
-    except Exception as exc:
-        logger.warning('watermark QR could not be rendered (%s) — '
-                       'stamping the text watermark only', exc)
-        return None
+    if cfg is None:
+        return config()
+    return {**DEFAULTS, **cfg}
+
+
+def _info(code) -> dict:
+    """Normalise the ``code`` argument (a plain string or a facts dict)."""
+    if not isinstance(code, dict):
+        return {'code': str(code or '').strip(), 'case_number': '', 'username': '',
+                'at': '', 'plate': '', 'policy': '', 'base_url': ''}
+    return {k: str(code.get(k) or '').strip()
+            for k in ('code', 'case_number', 'username', 'at', 'plate', 'policy', 'base_url')}
+
+
+def _margin(size, cfg: dict) -> int:
+    """Distance from the border: a share of the photo's width (2 % by default)."""
+    return max(2, int(round(size[0] * float(cfg.get('MARGIN_FRACTION') or 0.02))))
+
+
+def _anchor(size, block_size, cfg: dict):
+    """Top-left corner of a block of ``block_size`` in the configured corner.
+
+    The single place that turns «bottom-left» into coordinates — no element
+    picks its own position any more.
+    """
+    width, height = size
+    m = _margin(size, cfg)
+    where = str(cfg.get('SIMPLE_POSITION') or cfg.get('POSITION') or 'bottom-right').lower()
+    x = m if 'left' in where else width - block_size[0] - m
+    y = m if 'top' in where else height - block_size[1] - m
+    return max(0, int(x)), max(0, int(y))
+
+
+def _fit(block, size, cfg: dict):
+    """Shrink a block so it never covers more than its share of the photo.
+
+    One factor for the whole block, so the proportions inside it stay exactly
+    the same at any resolution (that is what "consistent" means here).
+    """
+    from PIL import Image
+
+    width, height = size
+    max_w = width * float(cfg.get('MIN_WIDTH_FRACTION') or 0.55)
+    max_h = height * float(cfg.get('MAX_HEIGHT_FRACTION') or 0.38)
+    factor = min(1.0, max_w / max(1, block.width), max_h / max(1, block.height))
+    if factor >= 0.999:
+        return block
+    return block.resize((max(1, int(round(block.width * factor))),
+                         max(1, int(round(block.height * factor)))), Image.LANCZOS)
+
+
+def _fade(layer, opacity: float):
+    """Apply an opacity through the **alpha channel** of one layer."""
+    opacity = min(1.0, max(0.0, float(opacity)))
+    if opacity >= 0.999:
+        return layer
+    alpha = layer.getchannel('A').point(lambda a: int(a * opacity))
+    layer.putalpha(alpha)
+    return layer
 
 
 def _shape_text(text: str) -> str:
@@ -780,17 +872,30 @@ def _shape_text(text: str) -> str:
         return text
 
 
-def _stamp_lines(info: dict, cfg: dict | None = None) -> list:
-    """The stamped lines = the four **values** (+ the optional custom text).
+#: which Persian label goes in front of which stamped fact
+_STAMP_LABEL_KEYS = (('computer_code', 'code'), ('case_number', 'case_number'),
+                     ('username', 'username'), ('when', 'at'),
+                     ('plate', 'plate'), ('policy', 'policy'))
 
-    v1.19 dropped the Persian labels (unshaped letters printed garbled);
-    v1.20 appends ``CUSTOM_TEXT`` under the values when it is enabled and
-    non-empty (``WATERMARK_CUSTOM_TEXT`` / ``WATERMARK_CUSTOM_TEXT_ENABLED``
-    in `.env`).
+
+def _stamp_lines(info: dict, cfg: dict | None = None) -> list:
+    """The stamped lines, each «label: value» (+ the optional custom text).
+
+    v1.22 (owner request) puts the Persian label back in front of every value
+    («کد رایانه پرونده: ۲۲۰۸۷۳۰»). The earlier "labels print garbled" problem
+    was missing letter shaping; the lines are now passed through
+    :func:`_shape_text` (arabic-reshaper + python-bidi) right before drawing, so
+    the Persian words are correctly joined and ordered. Turn the labels off with
+    ``WATERMARK_LABELS_ENABLED=false`` in `.env` (plain values, old look).
     """
-    lines = [v for v in (info.get('code'), info.get('case_number'),
-                         info.get('username'), info.get('at')) if v]
-    cfg = cfg if cfg is not None else config()
+    cfg = _cfg(cfg)
+    labels = bool(cfg.get('LABELS_ENABLED', True))
+    lines = []
+    for label_key, info_key in _STAMP_LABEL_KEYS:
+        value = str(info.get(info_key) or '').strip()
+        if not value:
+            continue
+        lines.append(f'{LABEL[label_key]}: {value}' if labels else value)
     if cfg.get('CUSTOM_TEXT_ENABLED', True):
         custom = str(cfg.get('CUSTOM_TEXT') or '').strip()
         if custom:
@@ -798,166 +903,272 @@ def _stamp_lines(info: dict, cfg: dict | None = None) -> list:
     return lines
 
 
-def simple_overlay(size, code, cfg: dict | None = None):
-    """Transparent layer with the watermark values (+ logos + optional QR).
+# --------------------------------------------------------------------------- #
+# element layers
+# --------------------------------------------------------------------------- #
+def _qr_image(url: str, side: int, cfg: dict | None = None):
+    """A ``side``×``side``-ish RGBA QR of ``url`` on a white plate — or ``None``.
 
-    v1.19 — ``code`` may be a plain string (the code line only, CLI compatible)
-    or a dict ``{'code', 'case_number', 'username', 'at', 'base_url'}``.
-    The stamp scales with the photo: small photos get a small stamp (never
-    taller than ``MAX_HEIGHT_FRACTION`` of the photo), text is drawn at 2× and
-    downscaled so it stays crisp, and the QR is skipped when it would be too
-    small to scan. The QR sits left of the texts; the two logos sit above them.
+    Scannability first (opacity on the code itself is the most common thing that
+    breaks a stamped QR):
+
+    * ``ERROR_CORRECT_H`` — up to 30 % of the modules may be damaged and it still
+      reads (photos get scratched, folded, re-photographed);
+    * a real **quiet zone** (4 modules of white) around the matrix, per the QR
+      specification, plus a little padding inside the plate;
+    * the matrix is scaled by an **integer** factor with ``NEAREST``, so a module
+      stays a crisp square — smooth-resampling a QR is what usually kills it;
+    * the plate behind it is semi-opaque (busy backgrounds stay readable) while
+      the modules themselves are **fully opaque** black on white.
+
+    Still totally optional: the ``qrcode`` package may be missing and any error
+    is logged and ignored, so the text watermark is always stamped.
+    """
+    cfg = _cfg(cfg)
+    if not url or side < 24:
+        return None
+    try:
+        import qrcode
+        from qrcode.constants import ERROR_CORRECT_H
+    except Exception:
+        logger.warning(
+            'qrcode package is not installed — the watermark QR was skipped '
+            '(optional). Install it with: pip install "qrcode[pil]"')
+        return None
+    try:
+        from PIL import Image
+
+        quiet = int(cfg.get('QR_QUIET_ZONE') or 4)
+        qr = qrcode.QRCode(error_correction=ERROR_CORRECT_H, box_size=1, border=quiet)
+        qr.add_data(url)
+        qr.make(fit=True)
+        matrix = qr.get_matrix()
+        modules = len(matrix)
+        if modules < 21:
+            return None
+
+        # one pixel per module, then an integer upscale: crisp squares only
+        bits = Image.new('1', (modules, modules))
+        pixels = bits.load()
+        for row_i, row in enumerate(matrix):
+            for col_i, on in enumerate(row):
+                pixels[col_i, row_i] = 1 if on else 0
+        # an **integer** number of pixels per module — and never fewer than
+        # two, or the code is a smear no scanner reads (NEAREST keeps every
+        # module a hard-edged square at any scale)
+        # at least QR_MIN_MODULE_PX pixels per module, whatever the requested
+        # side says: a 2 px module is a smear that no phone reads. The layer may
+        # therefore come back a little larger than `side` — the caller checks it
+        # against the photo and drops the QR when it would be out of proportion.
+        unit = max(int(cfg.get('QR_MIN_MODULE_PX') or 3), int(round(int(side) / modules)))
+        inner = unit * modules
+        mask = bits.resize((inner, inner), Image.NEAREST).convert('L')
+
+        pad = max(2, unit)                       # breathing room inside the plate
+        total = inner + 2 * pad
+        layer = Image.new('RGBA', (total, total), (0, 0, 0, 0))
+        backing = Image.new('RGBA', (total, total),
+                            (255, 255, 255, int(cfg.get('QR_BACKING_ALPHA') or 205)))
+        plate_mask = Image.new('L', (total, total), 0)
+        from PIL import ImageDraw
+        ImageDraw.Draw(plate_mask).rounded_rectangle(
+            (0, 0, total - 1, total - 1), radius=max(2, total // 12), fill=255)
+        layer.paste(backing, (0, 0), plate_mask)
+
+        code = Image.new('RGBA', (inner, inner), (255, 255, 255, 255))
+        code.paste(Image.new('RGBA', (inner, inner), (0, 0, 0, 255)), (0, 0), mask)
+        layer.alpha_composite(code, (pad, pad))
+        return layer
+    except Exception as exc:
+        logger.warning('watermark QR could not be rendered (%s) — '
+                       'stamping the text watermark only', exc)
+        return None
+
+
+def _logos_layer(each_width: int, cfg: dict):
+    """The brand logos in one row, each ``each_width`` px wide — or ``None``."""
+    from PIL import Image
+
+    each_width = int(each_width)
+    if each_width < 8:
+        return None
+    row = []
+    for rel in cfg.get('LOGOS') or []:
+        try:
+            with Image.open(_static_dir() / rel) as im:
+                logo = im.convert('RGBA')
+        except Exception:
+            continue
+        ratio = each_width / max(1, logo.width)
+        height = max(1, int(round(logo.height * ratio)))
+        row.append(logo.resize((each_width, height), Image.LANCZOS))
+    if not row:
+        return None
+    gap = max(2, int(round(each_width * 0.12)))
+    width = sum(l.width for l in row) + gap * (len(row) - 1)
+    height = max(l.height for l in row)
+    out = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    x = 0
+    for logo in row:                            # logos sit on a common baseline
+        out.alpha_composite(logo, (x, height - logo.height))
+        x += logo.width + gap
+    return out
+
+
+def _text_layer(lines: list, font, stroke: int):
+    """The text lines on their own transparent layer (white on a dark outline).
+
+    White fill + a dark stroke keeps the values readable on any photo, light or
+    busy, without a background box (owner request: no box behind the stamp).
     """
     from PIL import Image, ImageDraw
 
-    info = ({'code': str(code).strip(), 'case_number': '', 'username': '',
-             'at': '', 'base_url': ''}
-            if not isinstance(code, dict) else {
-                'code': str(code.get('code') or '').strip(),
-                'case_number': str(code.get('case_number') or '').strip(),
-                'username': str(code.get('username') or '').strip(),
-                'at': str(code.get('at') or '').strip(),
-                'base_url': str(code.get('base_url') or '').strip(),
-            })
-    cfg = {**DEFAULTS, **(cfg or {})}
+    probe = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
+    boxes = []
+    for text in lines:
+        box = probe.textbbox((0, 0), text, font=font, stroke_width=stroke)
+        if (box[2] - box[0]) <= 0 or (box[3] - box[1]) <= 0:
+            return None
+        boxes.append(box)
+    line_h = int(round(font.size * float(DEFAULTS.get('LINE_SPACING') or 1.35)))
+    width = max(b[2] - b[0] for b in boxes) + 2 * stroke
+    height = line_h * len(lines) + 2 * stroke
+    layer = Image.new('RGBA', (max(1, width), max(1, height)), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    y = stroke
+    for text, box in zip(lines, boxes):
+        # right-aligned: the value's right edge is the block's right edge
+        draw.text((width - stroke - (box[2] - box[0]) - box[0], y - box[1]),
+                  text, font=font, fill=(255, 255, 255, 255),
+                  stroke_width=stroke, stroke_fill=(0, 0, 0, 235))
+        y += line_h
+    return layer
+
+
+# --------------------------------------------------------------------------- #
+# the assembled stamp
+# --------------------------------------------------------------------------- #
+def simple_overlay(size, code, cfg: dict | None = None):
+    """One transparent layer carrying the whole stamp, sized for ``size``.
+
+    ``code`` may be a plain string (the code line only, CLI compatible) or a
+    dict of facts (``code`` / ``case_number`` / ``username`` / ``at`` /
+    ``plate`` / ``policy`` / ``base_url``).
+
+    Layout — the QR left of the values, the logos above them, the whole block in
+    the configured corner::
+
+        ▓▓▓▓   [logo] [logo]
+        ▓QR▓   22241712
+        ▓▓▓▓   77777777
+               palireza
+               ۱۴۰۵-۰۷-۰۹ ۱۲:۳۴
+    """
+    from PIL import Image
+
+    cfg = _cfg(cfg)
+    info = _info(code)
     width, height = size
 
     lines = [_shape_text(v) for v in _stamp_lines(info, cfg)]
     if not lines:
         return Image.new('RGBA', size, (0, 0, 0, 0))
 
-    # ---- proportional size: small photo → small stamp --------------------
-    # block ≈ 8.1 × font (logos row + gap + 4 lines); cap its height so the
-    # stamp never eats the photo (image-1 feedback: shrink on small images).
-    max_block = float(cfg.get('MAX_HEIGHT_FRACTION') or 0.38)
-    font_size = int(min(width, height) * 0.034)
-    font_size = min(font_size, int(height * max_block / 8.1))
-    font_size = max(5, min(font_size, 64))
+    # ---- sizes: shares of the photo, never pixel counts --------------------
+    font_size = max(8, int(round(height * float(cfg.get('FONT_HEIGHT_FRACTION') or 0.032))))
+    stroke = max(1, int(round(font_size / 10)))
 
-    margin = max(3, int(min(width, height) * float(cfg.get('MARGIN_FRACTION') or 0.022)))
-    where = str(cfg.get('SIMPLE_POSITION') or cfg.get('POSITION') or 'bottom-right').lower()
-    qr_min_side = int(cfg.get('QR_MIN_SIDE') or 88)
-
-    S = 2  # supersample factor — draw big, downscale: crisp strokes at small sizes
-
-    def render(draw_lines, font):
-        """Draw the stamp block at S× resolution on its own small canvas."""
-        fs = font_size * S
-        line_h = int(fs * 1.45)
-        draw = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
-
-        # measure the text lines
-        line_boxes = []
-        for text in draw_lines:
-            bbox = draw.textbbox((0, 0), text, font=font)
-            if (bbox[2] - bbox[0]) <= 0 or (bbox[3] - bbox[1]) <= 0:
-                return None
-            line_boxes.append(bbox)
-        text_w = max(b[2] - b[0] for b in line_boxes)
-        text_h = line_h * len(draw_lines)
-
-        # logos row (above the lines, same right edge)
-        logo_h = int(fs * 1.6)
-        logos = []
-        for rel in cfg.get('LOGOS') or []:
-            lg = _logo(_static_dir() / rel, logo_h)
-            if lg is not None:
-                logos.append(lg)
-        gap_logo = int(fs * 0.7) if logos else 0
-        logos_w = (sum(lg.width for lg in logos) + 8 * S * (len(logos) - 1)) if logos else 0
-
-        block_w = max(text_w, logos_w)
-        block_h = logo_h + gap_logo + text_h
-
-        # draw texts + logos into the (cropped) block canvas, S× resolution
+    block = None
+    for font in (_font(font_size, '700'), _font_default(font_size)):
+        text = _text_layer(lines, font, stroke)
+        if text is None:
+            continue
+        logos = _logos_layer(width * float(cfg.get('LOGO_WIDTH_FRACTION') or 0.15), cfg)
+        gap = int(round(font_size * 0.7)) if logos is not None else 0
+        block_w = max(text.width, logos.width if logos is not None else 0)
+        block_h = (logos.height if logos is not None else 0) + gap + text.height
         block = Image.new('RGBA', (block_w, block_h), (0, 0, 0, 0))
-        bdraw = ImageDraw.Draw(block)
-        x_right = block_w
-        x = x_right
-        for lg in reversed(logos):
-            x -= lg.width
-            block.alpha_composite(lg, (x, 0))
-            x -= 8 * S
-        y = logo_h + gap_logo
-        stroke = max(1, fs // 14)
-        for text, bbox in zip(draw_lines, line_boxes):
-            bdraw.text((x_right - (bbox[2] - bbox[0]) - bbox[0], y - bbox[1]),
-                       text, font=font, fill=(255, 255, 255, 255),
-                       stroke_width=stroke, stroke_fill=(0, 0, 0, 225))
-            y += line_h
-        return block
+        if logos is not None:
+            block.alpha_composite(logos, (block_w - logos.width, 0))
+        block.alpha_composite(text, (block_w - text.width, gap + (logos.height if logos is not None else 0)))
+        break
+    if block is None:
+        # last resort: the plain code alone in Pillow's bundled bitmap font
+        text = _text_layer([info['code']] if info['code'] else lines,
+                           _font_default(font_size), stroke)
+        if text is None:
+            raise ValueError(f'watermark text did not render: {lines!r}')
+        block = text
 
-    def assemble(block_s):
-        """Downscale the S× block to final size, place it + the sharp QR."""
-        if block_s is None:
-            return None
-        out = block_s.resize((max(1, block_s.width // S), max(1, block_s.height // S)),
-                             Image.LANCZOS)
-        bbox = out.getbbox()
-        if bbox is None:
-            return out
-        block_w = bbox[2] - bbox[0]
-        block_h = bbox[3] - bbox[1]
-        # optional QR left of the block — only when enabled and big enough
-        # to scan; never breaks the texts (_qr_image fails soft + outer catch)
-        qr_side = block_h
-        qr = None
-        if cfg.get('QR_ENABLED', True) and qr_side >= qr_min_side:
+    # the values and the logos take the configured opacity; the QR never does
+    block = _fade(_fit(block, size, cfg), cfg.get('OPACITY', 1.0))
+
+    # ---- the QR: its own layer, only when it stays big enough to scan ------
+    qr = None
+    if cfg.get('QR_ENABLED', True):
+        qr_side = int(round(width * float(cfg.get('QR_SIZE_FRACTION') or 0.10)))
+        if qr_side >= int(cfg.get('QR_MIN_SIDE') or 88):
             try:
-                qr = _qr_image(_wm_info_url(info), qr_side)
+                qr = _qr_image(_wm_info_url(info), qr_side, cfg)
             except Exception:
                 qr = None
-        if qr is not None:
-            gap_qr = int(font_size * 1.1)
-            left = margin if 'left' in where else width - block_w - gap_qr - qr_side - margin
-            top = margin if 'top' in where else height - block_h - margin
-            # shift the drawn block right of the QR, then paste the sharp QR
-            shifted = Image.new('RGBA', size, (0, 0, 0, 0))
-            shifted.alpha_composite(out.crop(bbox), (left + qr_side + gap_qr, top))
-            shifted.alpha_composite(qr, (left, top))
-            return shifted
-        left = margin if 'left' in where else width - block_w - margin
-        top = margin if 'top' in where else height - block_h - margin
-        shifted = Image.new('RGBA', size, (0, 0, 0, 0))
-        shifted.alpha_composite(out.crop(bbox), (left, top))
-        return shifted
+        # the QR grew past its share of the photo (a long URL on a small photo):
+        # better no code at all than one that covers the picture — and the
+        # values are stamped and readable either way.
+        if qr is not None and qr.width > width * float(cfg.get('QR_MAX_WIDTH_FRACTION') or 0.45):
+            logger.warning('watermark QR skipped: %d px is out of proportion on a '
+                           '%d px wide photo', qr.width, width)
+            qr = None
 
-    stamp_s = render(lines, _font(font_size * S, '700'))
-    stamp = assemble(stamp_s) if stamp_s is not None else None
-    if stamp is None or stamp.getbbox() is None:
-        # v1.17 — a broken TTF must never produce an invisible watermark:
-        # fall back to Pillow's bundled font (renders the values fine).
-        stamp_s = render(lines, _font_default(font_size * S))
-        stamp = assemble(stamp_s) if stamp_s is not None else None
-    if stamp is None or stamp.getbbox() is None:
-        # last resort: the pure-Latin code value alone (bitmap-font safe).
-        stamp_s = render([info['code']], _font_default(font_size * S))
-        stamp = assemble(stamp_s) if stamp_s is not None else None
-    if stamp is None or stamp.getbbox() is None:
-        raise ValueError(f'watermark text did not render: {lines!r}')
-    return stamp
+    gap_qr = int(round(font_size * 1.1)) if qr is not None else 0
+    total_w = block.width + gap_qr + (qr.width if qr is not None else 0)
+    total_h = max(block.height, qr.height if qr is not None else 0)
+
+    stamp = Image.new('RGBA', (max(1, total_w), max(1, total_h)), (0, 0, 0, 0))
+    if qr is not None:
+        stamp.alpha_composite(qr, (0, (total_h - qr.height) // 2))
+    stamp.alpha_composite(block, (qr.width + gap_qr if qr is not None else 0,
+                                  (total_h - block.height) // 2))
+
+    # ---- one composite, at the anchored corner -----------------------------
+    layer = Image.new('RGBA', size, (0, 0, 0, 0))
+    layer.alpha_composite(stamp, _anchor(size, stamp.size, cfg))
+    return layer
 
 
 def simple_watermark_image(pil_image, code, cfg: dict | None = None):
-    """Return a copy of the image carrying only the plain code text."""
-    cfg = cfg or config()
-    base = pil_image.convert('RGBA')
+    """Return a copy of ``pil_image`` carrying the stamp.
+
+    v1.22 — the input is normalised first (``exif_transpose`` so a phone photo
+    is not stamped sideways, then RGBA) and the stamp is composited **once**.
+    """
+    from PIL import ImageOps
+
+    cfg = _cfg(cfg)
+    base = pil_image
+    try:
+        transposed = ImageOps.exif_transpose(base)
+        if transposed is not None:
+            base = transposed
+    except Exception:
+        pass
+    base = base.convert('RGBA')
     out = base.copy()
-    out.alpha_composite(simple_overlay(base.size, code, cfg), (0, 0))
+    out.alpha_composite(simple_overlay(base.size, code, cfg))
     return out
 
 
 def simple_watermark_file(path, code, cfg: dict | None = None, dest=None) -> Path:
-    """Burn the plain «کد رایانه» text into the photo (in place, or into ``dest``).
+    """Burn the stamp into the photo (in place, or into ``dest``).
 
-    Same safety as :func:`watermark_file`: written to a temporary neighbour and
-    only then moved into place. No metadata, no styling — just the text.
+    Saved **in the format it came in** (no conversion), RGBA→RGB for JPEG, with
+    the ICC profile and the DPI preserved. Written to a temporary neighbour and
+    only then moved into place, so a failure can never leave a half-written
+    photo behind.
     """
-    import os
+    from PIL import Image
 
-    from PIL import Image, ImageOps
-
-    cfg = cfg or config()
+    cfg = _cfg(cfg)
     src = Path(path)
     out_path = Path(dest) if dest else src
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -965,25 +1176,27 @@ def simple_watermark_file(path, code, cfg: dict | None = None, dest=None) -> Pat
     with Image.open(src) as im:
         fmt = (im.format or 'JPEG').upper()
         icc = im.info.get('icc_profile')
-        image = ImageOps.exif_transpose(im.convert('RGBA'))
-        if image is None:
-            image = im.convert('RGBA')
+        dpi = im.info.get('dpi')
+        image = im.convert('RGBA')
     out = simple_watermark_image(image, code, cfg)
+
     save_kwargs = {}
-    if cfg.get('DEGRADED_SAVE'):
-        if fmt in ('JPEG', 'JPG'):
-            out = out.convert('RGB')
-        save_kwargs = {}
-    elif fmt in ('JPEG', 'JPG'):
+    if fmt in ('JPEG', 'JPG'):
         out = out.convert('RGB')
-        # v1.19 — quality 95 + subsampling 0 (4:4:4): the re-encode must not
-        # soften the photo the way the old 4:2:0 default did.
-        save_kwargs = {'quality': int(cfg.get('JPEG_QUALITY') or 95),
-                       'subsampling': 0, 'optimize': True, 'progressive': True}
-    elif fmt == 'WEBP':
+        if not cfg.get('DEGRADED_SAVE'):
+            # quality 95 + subsampling 0 (4:4:4): the re-encode must not soften
+            # the photo the way the old 4:2:0 default did.
+            save_kwargs = {'quality': int(cfg.get('JPEG_QUALITY') or 95),
+                           'subsampling': 0, 'optimize': True, 'progressive': True}
+    elif fmt == 'WEBP' and not cfg.get('DEGRADED_SAVE'):
         save_kwargs = {'quality': int(cfg.get('JPEG_QUALITY') or 95)}
-    if icc and not cfg.get('DEGRADED_SAVE'):
-        save_kwargs['icc_profile'] = icc
+    elif fmt == 'PNG' and not cfg.get('DEGRADED_SAVE'):
+        save_kwargs = {'optimize': True}
+    if not cfg.get('DEGRADED_SAVE'):
+        if icc:
+            save_kwargs['icc_profile'] = icc
+        if dpi:
+            save_kwargs['dpi'] = dpi
     _atomic_put(lambda p: out.save(p, format=fmt, **save_kwargs), out_path)
     return out_path
 
@@ -998,7 +1211,7 @@ def run_simple_for_submission(submission, base_url: str | None = None) -> int:
     """
     from django.utils import timezone as tz
 
-    from app_media.services import storage
+    from app_media.services import formats, storage
 
     record = getattr(submission, 'any_record', None)
     code = (getattr(submission, 'entered_file_code', '')
@@ -1010,12 +1223,22 @@ def run_simple_for_submission(submission, base_url: str | None = None) -> int:
         at = jalali_datetime_of(tz.now())
     except Exception:
         at = tz.now().strftime('%Y-%m-%d %H:%M')
+    # the policy number lives in a different column per insurance type
+    policy_field = {'body': 'policy_number', 'third': 'atfault_policy_number'}.get(
+        str(getattr(submission, 'insurance_type', '') or ''), 'policy_number')
+    plate = ''
+    try:
+        plate = str(submission.effective_plate() or '')
+    except Exception:
+        plate = str(getattr(record, 'plate_number', '') or '')
     info = {
         'code': str(code).strip(),
         'case_number': str(getattr(record, 'case_number', '') or ''),
         'username': (getattr(submission, 'completed_username', '')
                      or getattr(submission, 'auth_username', '') or ''),
         'at': at,
+        'plate': plate.strip(),
+        'policy': str(getattr(record, policy_field, '') or '').strip(),
         'base_url': base_url or getattr(settings, 'PUBLIC_BASE_URL', '') or '',
     }
     cfg = config()
@@ -1026,14 +1249,30 @@ def run_simple_for_submission(submission, base_url: str | None = None) -> int:
         if not path.exists():
             problems.append(f'{image.image_path}: فایل روی دیسک نیست')
             continue
+        if formats.needs_no_watermark(path.name):
+            # v1.21 — HEIC/HEIF/DNG are stored byte-for-byte: Pillow can neither
+            # open nor write them, and a conversion is explicitly unwanted, so
+            # these photos keep their original bytes (no stamp, no error).
+            continue
+        # v1.22 — a زیان‌دیده's photos carry that party's own plate on the stamp
+        # and in the QR page (the rest of the facts are the case's).
+        photo_info = info
+        party = getattr(image, 'party', None)
+        if party is not None:
+            try:
+                party_plate = str(getattr(party, 'plate_full', '') or '').strip()
+            except Exception:
+                party_plate = ''
+            if party_plate:
+                photo_info = {**info, 'plate': party_plate}
         try:
-            simple_watermark_file(path, info, cfg)
+            simple_watermark_file(path, photo_info, cfg)
         except Exception:
             # v1.17 — retry once with a degraded save (no icc/progressive),
             # then record the problem instead of silently leaving a photo
             # without the watermark.
             try:
-                simple_watermark_file(path, info, {**cfg, 'DEGRADED_SAVE': True})
+                simple_watermark_file(path, photo_info, {**cfg, 'DEGRADED_SAVE': True})
             except Exception as exc:
                 problems.append(f'{image.image_path}: {exc}')
                 continue
