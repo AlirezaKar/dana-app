@@ -12,8 +12,14 @@ be changed for a single run::
 
     DANA_CAR_IMAGE_MAX_GAP_SECONDS=3 python manage.py runserver
 
+In the file itself **both spellings work** — ``DANA_HEF_URL=…`` (what
+`.env.sample` writes) and ``HEF_URL=…`` are the same key. The file is read once
+while this module is imported, so every server (re)start applies the current
+`.env`; ``python manage.py env_check`` shows what was read and from where.
+
 If `.env` is missing the project still starts with the defaults written below.
 """
+import os
 from pathlib import Path
 
 try:                                  # normal case: imported as «dana.settings»
@@ -23,13 +29,22 @@ except ImportError:                   # imported outside the package
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-#: the configuration file (copy `.env.sample` to `.env` and edit it)
-env = Env(BASE_DIR / '.env')
+#: the configuration file (copy `.env.sample` to `.env` and edit it). The real
+#: environment variable ``DANA_ENV_FILE`` may point at another file — handy when
+#: one machine keeps several configurations, and what `scripts/check_env.py`
+#: uses to test a file without touching the real `.env`.
+ENV_FILE = Path(os.environ.get('DANA_ENV_FILE') or '.env')
+if not ENV_FILE.is_absolute():
+    ENV_FILE = BASE_DIR / ENV_FILE
+
+#: the reader itself — `manage.py env_check` and the start-up line report from it
+env = Env(ENV_FILE)
+ENV = env
 
 
-def _path(key, default):
+def _path(key, default, aliases=()):
     """A filesystem path from `.env`; relative values are taken from the project root."""
-    value = env.get(key, '')
+    value = env.get(key, '', aliases)
     path = Path(value) if value else Path(default)
     return path if path.is_absolute() else BASE_DIR / path
 
@@ -116,7 +131,8 @@ WSGI_APPLICATION = 'dana.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': _path('SQLITE_NAME', 'db.sqlite3'),
+        # `.env` → DANA_DB_PATH (the old spelling SQLITE_NAME keeps working)
+        'NAME': _path('DB_PATH', 'db.sqlite3', aliases=('SQLITE_NAME',)),
     }
 }
 
@@ -149,9 +165,14 @@ STATICFILES_DIRS = [
 STATIC_ROOT = _path('STATIC_ROOT', STATIC_SOURCES)
 
 #: cache-buster for css/js links (`?v=…`) — bump on every release that changes
-#: static assets so browsers never keep an old copy (single source of truth;
-#: the templates no longer hardcode versions).
-STATIC_VERSION = env.get('STATIC_VERSION', '1.21')
+#: static assets so browsers always fetch the new css/js/logos and never keep a
+#: cached copy (single source of truth; the templates no longer hardcode
+#: versions). `.env` → DANA_STATIC_VERSION.
+STATIC_VERSION = env.get('STATIC_VERSION', '1.23')
+
+# v1.23 — the version the footer shows. `.env` → DANA_APP_VERSION; empty means
+# "same as DANA_STATIC_VERSION", so the single static knob still moves both.
+APP_VERSION = env.get('APP_VERSION', '') or STATIC_VERSION
 
 # v1.22 — let WhiteNoise send a Cache-Control on /static/ in production; every
 # css/js/logo link carries ?v=STATIC_VERSION, so a release bumps the version and
@@ -182,8 +203,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ---------------------------------------------------------------------------
 BRAND_URLS = {
     'DANA_URL': env.get('DANA_URL', 'https://www.dana-insurance.com/'),
-    # changed by the owner's manual template edit (was http://hef.co.ir)
-    'HEF_URL': env.get('HEF_URL', 'http://127.0.0.1:6060'),
+    # `.env` → DANA_HEF_URL (the sample's default is the live hef.co.ir address)
+    'HEF_URL': env.get('HEF_URL', 'http://hef.co.ir'),
 }
 
 # v1.21 — the logo FILES, also from `.env`, in ONE place: pages render them

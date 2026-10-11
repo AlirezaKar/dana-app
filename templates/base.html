@@ -30,7 +30,8 @@
   </main>
 
   <footer class="site-footer">
-    <div class="footer-line">تمامی حقوق محفوظ است ver: 1.1 </div>
+    {# v1.23 — the version is not hardcoded any more: settings.APP_VERSION (from .env) #}
+    <div class="footer-line">تمامی حقوق محفوظ است ver: {{ APP_VERSION }} </div>
     <div class="footer-line footer-line-brands">
       <a href="{{ DANA_URL }}" target="_blank" rel="noopener">بیمه دانا</a>
       <span class="footer-sep">-</span>

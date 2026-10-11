@@ -89,4 +89,7 @@ def dana_context(request):
         # v1.16 — the css/js cache-buster comes from settings.STATIC_VERSION
         # (bumped per release) — the templates no longer hardcode versions.
         'STATIC_VERSION': getattr(settings, 'STATIC_VERSION', '1.16'),
+        # v1.23 — the version the footer prints (settings.APP_VERSION ← .env,
+        # falling back to STATIC_VERSION).
+        'APP_VERSION': getattr(settings, 'APP_VERSION', '') or getattr(settings, 'STATIC_VERSION', ''),
     }

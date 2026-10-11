@@ -569,14 +569,10 @@ input.field-locked, .cb-input.field-locked {
 .plate-digit-static { width: 42px; height: 50px; font-size: 1.25rem; }
 .plate-letter-static { min-width: 110px; height: 50px; font-size: 1.05rem; }
 .plate-iran .plate-digit-static { width: 34px; height: 50px; font-size: 1.05rem; }
-/* the read-only plate is a *display* of a value: a bit smaller than the form */
+/* the read-only plate is a *display* of a value: a bit smaller than the form.
+   Its sizes are NOT written here — v1.23 scales the whole drawing as a unit,
+   see «the read-only plate scales» at the end of this section. */
 .plate-readonly { transform-origin: right center; }
-.plate-readonly .plate-digit-static { width: 34px; height: 40px; font-size: 1rem; }
-.plate-readonly .plate-letter-static { min-width: 84px; height: 40px; font-size: 0.95rem; }
-.plate-readonly .plate-iran .plate-digit-static { width: 28px; height: 40px; font-size: 0.95rem; }
-.plate-readonly .plate-main { padding: 20px 12px 8px 8px; gap: 5px; }
-.plate-readonly .plate-blue { width: 52px; }
-.plate-readonly .plate-iran-label { font-size: 10px; top: -16px; }
 /* the plate inside an info row: on its own line, right-aligned like the rest */
 .info-row-plate { display: block; }
 .info-row-plate .info-label { display: block; margin-bottom: 6px; }
@@ -594,15 +590,11 @@ input.field-locked, .cb-input.field-locked {
   .plate-iran { padding-left: 6px; }
   .plate-iran-label { font-size: 9px; top: -16px; }
   .plate-iran .plate-digit { width: 28px; height: 42px; }
-  .plate-digit-static { width: 32px; height: 42px; font-size: 1rem; }
-  .plate-letter-static { min-width: 76px; height: 42px; font-size: 0.9rem; }
-  .plate-iran .plate-digit-static { width: 28px; height: 42px; }
 }
 /* v1.21 — on a phone the whole plate (including «ایران ##») must stay visible:
    shrink one step further and, if the screen is still too narrow, let the
    wrapper scroll instead of cutting the last box off. */
 @media (max-width: 430px) {
-  .plate-wrapper { overflow-x: auto; padding-bottom: 4px; }
   .plate { margin-left: 0; }
   .plate-blue { width: 34px; padding: 6px 2px; gap: 4px; }
   .plate-flag { width: 26px; height: 17px; }
@@ -613,14 +605,78 @@ input.field-locked, .cb-input.field-locked {
   .plate-iran { padding-left: 5px; margin-left: 4px; }
   .plate-iran .plate-digit { width: 24px; height: 38px; font-size: 0.85rem; }
   .plate-iran-label { font-size: 8px; top: -13px; }
-  .plate-digit-static { width: 26px; height: 38px; font-size: 0.9rem; }
-  .plate-letter-static { min-width: 52px; height: 38px; font-size: 0.8rem; }
-  .plate-iran .plate-digit-static { width: 24px; height: 38px; }
-  .plate-readonly .plate-digit-static,
-  .plate-readonly .plate-iran .plate-digit-static { width: 26px; height: 36px; font-size: 0.85rem; }
-  .plate-readonly .plate-letter-static { min-width: 52px; height: 36px; font-size: 0.8rem; }
-  .plate-readonly .plate-main { padding: 15px 7px 7px 6px; }
 }
+
+/* ---------------------------------------------------------------------------
+   v1.23 — the read-only plate (the done page, the victim rows) SCALES instead
+   of overflowing. Everything inside it is a multiple of --u, and --u is
+
+       (the width the plate has) / (the plate's own width)
+
+   On any screen that is wide enough --u is exactly 1px, so the desktop plate
+   is pixel-for-pixel what it always was. On a phone --u shrinks until the whole
+   drawing — the two digits, the letter, the three digits *and* «ایران ##» —
+   fits inside the card: nothing is cut off at the edge of the screen and no
+   horizontal scrolling is needed.
+
+   445 ≈ the plate's own width in px at scale 1; the px taken off are the
+   paddings the plate collects on the way in (container 28 + card 36 + info box
+   32 + the info row 4 ≈ 100 for the done page, and 32 more inside a victim
+   block on the upload page), each with a few px of slack.
+
+   Only the display variant scales: the *form* keeps its tappable boxes (a
+   phone-sized input would be unusable) and, on the narrowest phones, scrolls —
+   see the two media queries above.
+
+   Every use is written `var(--u, 1px)`: a browser that cannot compute --u (no
+   `min()`) draws the plate at its normal size instead of collapsing it — the
+   wrapper below then scrolls it, so it still never leaves the card. */
+.plate-readonly { --u: min(1px, calc((100vw - 104px) / 445)); }
+/* …the same plate one level deeper in the upload form (زیان‌دیده blocks) */
+.victim-block .plate-readonly { --u: min(1px, calc((100vw - 136px) / 445)); }
+.plate-readonly {
+  border-width: calc(3 * var(--u, 1px));
+  border-radius: calc(14 * var(--u, 1px));
+}
+.plate-readonly .plate-blue {
+  width: calc(52 * var(--u, 1px));
+  padding: calc(8 * var(--u, 1px)) calc(4 * var(--u, 1px));
+  gap: calc(6 * var(--u, 1px));
+}
+.plate-readonly .plate-flag {
+  width: calc(34 * var(--u, 1px)); height: calc(22 * var(--u, 1px));
+  border-width: calc(1 * var(--u, 1px));
+}
+.plate-readonly .plate-ir { font-size: calc(9 * var(--u, 1px)); letter-spacing: calc(0.4 * var(--u, 1px)); }
+.plate-readonly .plate-bolt { width: calc(5 * var(--u, 1px)); height: calc(5 * var(--u, 1px)); }
+.plate-readonly .plate-main {
+  padding: calc(20 * var(--u, 1px)) calc(12 * var(--u, 1px)) calc(8 * var(--u, 1px)) calc(8 * var(--u, 1px));
+  gap: calc(5 * var(--u, 1px));
+}
+.plate-readonly .plate-section { gap: calc(6 * var(--u, 1px)); }
+.plate-readonly .plate-cell {
+  border-width: calc(1.5 * var(--u, 1px));
+  border-radius: calc(8 * var(--u, 1px));
+}
+.plate-readonly .plate-digit-static {
+  width: calc(34 * var(--u, 1px)); height: calc(40 * var(--u, 1px)); font-size: calc(16 * var(--u, 1px));
+}
+.plate-readonly .plate-letter-static {
+  min-width: calc(84 * var(--u, 1px)); height: calc(40 * var(--u, 1px)); font-size: calc(15.2 * var(--u, 1px));
+}
+.plate-readonly .plate-iran {
+  margin-left: calc(6 * var(--u, 1px));
+  border-left-width: calc(2 * var(--u, 1px));
+  padding-left: calc(10 * var(--u, 1px));
+}
+.plate-readonly .plate-iran .plate-digit-static {
+  width: calc(28 * var(--u, 1px)); height: calc(40 * var(--u, 1px)); font-size: calc(15.2 * var(--u, 1px));
+}
+.plate-readonly .plate-iran-label { font-size: calc(10 * var(--u, 1px)); top: calc(-16 * var(--u, 1px)); }
+
+/* last resort — if a device still cannot fit the drawing, it scrolls inside its
+   own box: the plate must never leave the card (i.e. the screen) */
+.info-row-plate .plate-wrapper { overflow-x: auto; padding: 2px 0 6px; }
 
 /* ---------- 14. Info box (summary) ---------- */
 .info-box {
