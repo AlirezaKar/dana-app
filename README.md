@@ -15,9 +15,9 @@ cp .env.sample .env      # every key with its default + comments
 ```
 
 `.env.sample` holds the full list — Django basics (`SECRET_KEY`, `DEBUG`,
-`ALLOWED_HOSTS`, paths), brand links, the case rules
-(`CAR_IMAGE_MAX_GAP_SECONDS`, `CAR_IMAGE_MAX_SPAN_MINUTES`), the session timeout
-(`SESSION_TIMEOUT_SECONDS` / `_WARN_SECONDS` / `_MODE`), the switches
+`ALLOWED_HOSTS`, paths), brand links and logo files, the app version, the case
+rules (`CAR_IMAGE_MAX_GAP_SECONDS`, `CAR_IMAGE_MAX_SPAN_MINUTES`), the session
+timeout (`SESSION_TIMEOUT_SECONDS` / `_WARN_SECONDS` / `_MODE`), the switches
 (`AUTO_SYNC_EXCEL_ON_START`, `AUTO_SYNC_ON_PAGE_VIEW`, `ACTIVITY_LOG`,
 `DEV_TOOLS`) and the whole watermark block. An empty value (`KEY=`) means "use the
 default in the code". A real environment variable wins over the file, and
@@ -28,9 +28,26 @@ DANA_CAR_IMAGE_MAX_GAP_SECONDS=3 python manage.py runserver
 DANA_SESSION_TIMEOUT_SECONDS=30 python manage.py runserver
 ```
 
-`.env` is the runtime file (keep your local values); `.env.sample` is the
-documented template that travels with the project. The reader is
-`dana/env.py` (no third-party dependency).
+**In the file both spellings are the same key** — `DANA_HEF_URL=…` (what
+`.env.sample` writes) and `HEF_URL=…` are read identically, and `DANA_` wins if
+a key is there twice. The file is read **once per process**, so a server restart
+is what applies an edit; the start-up banner says how many values came from the
+file (`.env` → 24 values, 0 from the environment, …) and
+
+```bash
+python manage.py env_check                 # every key: value + the line it came from
+python manage.py env_check --file other.env  # what that file would give
+python manage.py env_check --strict        # exit 1 when a line is never read (typo)
+```
+
+prints the whole picture: which key is in force, whether it came from the real
+environment, from `.env` (and under which spelling) or from the code default, plus
+the lines nobody reads. `DANA_ENV_FILE=<path>` (a real environment variable, read
+before the file) points the app at a different configuration file — useful when a
+machine keeps several, and what the regression script uses to test a file without
+touching the real `.env`. `.env` is the runtime file (keep your local values);
+`.env.sample` is the documented template that travels with the project. The
+reader is `dana/env.py` (no third-party dependency).
 
 ## Run
 
@@ -799,3 +816,42 @@ The native browser back button behaves like the app's back button
   the computer-code box) and the «تصاویر مقصر در سه بخش زیر بارگذاری کنید» line is
   the `<p class="card-desc">` a few lines below the «بارگذاری تصاویر» separator in
   the same file. Both are static HTML — edit them right there.
+
+## Round 30 — v1.23 (`.env` really read; the footer version; the plate on a phone)
+
+- **`.env` was only half-read — fixed at the reader.** `dana/env.py` searched the
+  file for the *short* key (`env.get('HEF_URL')` → looked for `HEF_URL`), while
+  `.env.sample` writes every key **with the `DANA_` prefix**
+  (`DANA_HEF_URL=…`). Every prefixed line was therefore silently ignored and the
+  code default won — which is exactly why the footer version, the logo files,
+  `CAR_IMAGE_MAX_GAP_SECONDS`, `HEF_URL` and the watermark custom text all looked
+  impossible to change. `Env.get()` now accepts **both spellings in the file**
+  (`DANA_HEF_URL` and `HEF_URL`, prefixed wins when both exist), still accepts the
+  doubled `DANA_DANA_LOGO` spelling `.env.sample` used to write, keeps the
+  precedence *environment > file > default* (aliases included), and understands
+  `export KEY=value`, quoted values and trailing `# comments`. A regression script
+  covers all of it: `python scripts/check_env.py` (also asserts the app-level
+  effects: footer version, `HEF_URL`, logo path, cache-buster, timing rule,
+  watermark custom text).
+- **The footer version comes from `.env` now.** `templates/base.html` printed a
+  hardcoded `ver: 1.1`. It prints `{{ APP_VERSION }}` — `DANA_APP_VERSION` in
+  `.env`, and that falls back to `DANA_STATIC_VERSION`, so the same knob that
+  busts the css/js cache also moves the visible version. Both defaults are `1.23`.
+- **`python manage.py env_check`** — the answer to "is the app reading my file?".
+  It lists every key the app asks for, its effective value, and the source
+  (`environment`, `.env file` + the exact spelling, or `default`), masks secrets,
+  and warns about lines no setting reads (`DANA_LOGOZ=…` — a typo) and about keys
+  written twice. `--file` checks another file before you deploy it. The server's
+  own start-up line reports the same counts, so a restart visibly proves the file
+  was re-read.
+- **The plate inside the done page no longer runs off the screen.** The read-only
+  plate (done page + the زیان‌دیده rows) is now one *drawing that scales*: every
+  size in it is a multiple of `--u`, and `--u` is bound to the available width
+  (`min(1px, (100vw − 104px) / 445)`; the same plate one level deeper in the
+  upload form uses 136px). On a wide screen `--u` is exactly `1px`, so the desktop
+  look is unchanged pixel for pixel; on a 320–430px phone the whole plate — the two
+  digits, the letter, the three digits **and** «ایران ##» — shrinks until it fits
+  inside the card. The leftover `.plate-readonly` overrides in the 560/430px media
+  queries are gone (they fought the shared rules and let the blue bar stay 52px
+  wide on a phone), and the info-row wrapper keeps `overflow-x: auto` as a
+  last-resort net, so the plate can never leave the card.

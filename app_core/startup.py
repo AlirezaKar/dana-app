@@ -12,6 +12,10 @@ The sync is triggered by:
   * ``dana/wsgi.py`` / ``asgi.py``  → production servers (waitress, gunicorn, …)
 
 All three call :func:`sync_all`, which is idempotent and never raises.
+
+v1.23 adds a one-line **configuration report** to the same startup message: it
+says how many values came from `.env`, how many from the real environment and
+how many defaulted, so a restart visibly proves that `.env` was re-read.
 """
 import logging
 
@@ -46,7 +50,7 @@ def sync_all():
     — they are never derived from the records (see spec.md v1.5+). Use
     ``manage.py create_user`` / ``manage.py seed_users`` to manage them.
     """
-    result = {'records': None}
+    result = {'records': None, 'config': config_line()}
     try:
         result['records'] = sync_excel()
     except Exception as exc:              # never block startup on a data issue
@@ -55,12 +59,59 @@ def sync_all():
 
 
 def summary_line(result):
-    """Short human-readable summary (Persian) for the console."""
+    """The lines the server prints on every (re)start: data sync + config.
+
+    The configuration line is what makes "restart re-reads `.env`" visible: it
+    reports how many values came from the file, the environment and the defaults,
+    plus the version that is now in force.
+    """
     parts = []
     records = result.get('records')
     if records is not None:
         parts.append(f"پرونده‌ها: {records['created']} جدید، {records['updated']} به‌روزرسانی")
-    return 'همگام‌سازی داده‌ها — ' + ('؛ '.join(parts) if parts else 'غیرفعال')
+    lines = ['همگام‌سازی داده‌ها — ' + ('؛ '.join(parts) if parts else 'غیرفعال')]
+    config = result.get('config')
+    if config:
+        lines.append(config)
+    return '\n'.join(lines)
+
+
+# ---------------------------------------------------------------------------
+# configuration report (v1.23) — was `.env` read, and what came out of it?
+# ---------------------------------------------------------------------------
+def config_counts():
+    """How many effective values came from `.env` / the environment / the code.
+
+    ``Env`` records the origin of every value while ``dana/settings.py`` is
+    imported, so this is a real report, not a guess.
+    """
+    from django.conf import settings
+
+    env = getattr(settings, 'ENV', None)
+    counts = {'file': 0, 'environment': 0, 'default': 0}
+    if env is None:
+        return counts
+    for key in env.asked:
+        base = key[len('DANA_'):] if key.startswith('DANA_') else key
+        where = (env.sources.get(base) or ('default', ''))[0]
+        counts[where] = counts.get(where, 0) + 1
+    return counts
+
+
+def config_line():
+    """One console line: where this start read its configuration from."""
+    from django.conf import settings
+
+    env = getattr(settings, 'ENV', None)
+    version = getattr(settings, 'APP_VERSION', '') or getattr(settings, 'STATIC_VERSION', '')
+    path = getattr(settings, 'ENV_FILE', None)
+    counts = config_counts()
+    if env is None or path is None or not getattr(path, 'exists', lambda: False)():
+        head = 'تنظیمات: فایل .env پیدا نشد — همهٔ مقادیر پیش‌فرض کد'
+    else:
+        head = (f'تنظیمات: {path} خوانده شد — {counts["file"]} مقدار از فایل، '
+                f'{counts["environment"]} از محیط، {counts["default"]} پیش‌فرض')
+    return f'{head} — نسخه {version}'
 
 
 # ---------------------------------------------------------------------------
