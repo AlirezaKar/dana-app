@@ -350,9 +350,14 @@
     root.querySelectorAll('.confirm-group-btn').forEach(function (btn) {
       if (btn.dataset.wired === '1') return;
       btn.dataset.wired = '1';
-      btn.addEventListener('click', function () {
+      btn.addEventListener('click', async function () {
+        if (btn.disabled) return;
+        btn.disabled = true;
         var once = (btn.textContent || '').indexOf('فقط یک‌بار') >= 0;
-        if (once && !confirm('تأیید نهایی فقط یک‌بار امکان‌پذیر است و پس از آن امکان افزودن یا حذف تصویر وجود ندارد. ادامه می‌دهید؟')) {
+        if (!await DANA.confirmUpload(once
+          ? 'تأیید نهایی فقط یک‌بار امکان‌پذیر است و پس از آن امکان افزودن یا حذف تصویر وجود ندارد. ادامه می‌دهید؟'
+          : 'تصاویر بارگذاری‌شدهٔ این بخش تأیید شوند؟')) {
+          btn.disabled = false;
           return;
         }
         var original = btn.textContent;

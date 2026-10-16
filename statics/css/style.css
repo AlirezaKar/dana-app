@@ -574,7 +574,7 @@ input.field-locked, .cb-input.field-locked {
    see «the read-only plate scales» at the end of this section. */
 .plate-readonly { transform-origin: right center; }
 /* the plate inside an info row: on its own line, right-aligned like the rest */
-.info-row-plate { display: block; }
+.info-row.info-row-plate { display: block; min-width: 0; }
 .info-row-plate .info-label { display: block; margin-bottom: 6px; }
 .info-row-plate .info-value { display: block; }
 .info-row-plate .plate-wrapper { display: flex; justify-content: flex-start; }
@@ -677,6 +677,11 @@ input.field-locked, .cb-input.field-locked {
 /* last resort — if a device still cannot fit the drawing, it scrolls inside its
    own box: the plate must never leave the card (i.e. the screen) */
 .info-row-plate .plate-wrapper { overflow-x: auto; padding: 2px 0 6px; }
+/* Size only the display plate against its actual containing row. */
+.plate-wrapper-readonly { container-type: inline-size; min-width: 0; width: 100%; }
+@supports (width: 1cqw) {
+  .plate-wrapper-readonly .plate-readonly { --u: min(1px, calc(100cqw / 460)); }
+}
 
 /* ---------- 14. Info box (summary) ---------- */
 .info-box {
@@ -1472,3 +1477,12 @@ input.field-locked {
 #victim-form .plate-wrapper {
   display: flex; justify-content: center; margin-top: 4px;
 }
+
+/* Native <dialog> top layer keeps upload confirmations centered in the viewport. */
+.upload-confirm-dialog {
+  position: fixed; inset: 0; margin: auto; border: 0;
+  width: min(400px, calc(100% - 32px)); max-height: calc(100dvh - 32px);
+  overflow-y: auto; direction: rtl;
+}
+.upload-confirm-dialog::backdrop { background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(2px); }
+.upload-confirm-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }

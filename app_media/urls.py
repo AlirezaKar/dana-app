@@ -15,8 +15,10 @@ urlpatterns = [
     path('confirm-group/', views.confirm_group, name='media_confirm_group'),
     path('serve/<int:image_id>/', views.serve, name='media_serve'),
 
-    # ---- storage browser (read-only) ----
+    # ---- storage browser + explicit manual watermark action ----
     path('storage/', storage_views.storage_index, name='storage_index'),
+    re_path(r'^storage/watermark/(?P<subpath>.*?)/?$', storage_views.storage_watermark,
+            name='storage_watermark'),
     re_path(r'^storage/folder/(?P<subpath>.*?)/?$', storage_views.storage_folder,
             name='storage_folder'),
     re_path(r'^storage/raw/(?P<subpath>.+?)/?$', storage_views.storage_raw,

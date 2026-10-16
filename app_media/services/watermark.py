@@ -42,7 +42,7 @@ finalize step.
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -1199,6 +1199,61 @@ def simple_watermark_file(path, code, cfg: dict | None = None, dest=None) -> Pat
             save_kwargs['dpi'] = dpi
     _atomic_put(lambda p: out.save(p, format=fmt, **save_kwargs), out_path)
     return out_path
+
+
+def run_manual_for_folder(folder, *, authorize, base_url='') -> dict:
+    """Explicit folder action only: recursively overwrite photos, including stamped ones.
+
+    Resolve and authorize every candidate before writing anything. Symlinks outside
+    the selected folder are never followed. One bad photo does not stop the batch.
+    """
+    from app_media.models import CaseImage
+    from app_media.services import formats, storage
+
+    root = storage.root().resolve()
+    folder = Path(folder).resolve()
+    if not folder.is_relative_to(root) or not folder.is_dir():
+        raise ValueError('Folder must be inside storage')
+    paths = []
+    for path in sorted(folder.rglob('*')):
+        if not path.is_file() or path.is_symlink():
+            continue
+        resolved = path.resolve()
+        if not resolved.is_relative_to(folder):
+            continue
+        authorize(resolved)
+        paths.append(resolved)
+
+    rows = {row.image_path: row for row in CaseImage.objects.filter(
+        image_path__in=[path.relative_to(root).as_posix() for path in paths]
+    ).select_related('submission', 'submission__record',
+                     'submission__record_third', 'party')}
+    result = {'done': 0, 'skipped': 0, 'failed': 0}
+    cfg = config()
+    for path in paths:
+        if formats.needs_no_watermark(path.name) or not is_image_name(path):
+            result['skipped'] += 1
+            continue
+        row = rows.get(path.relative_to(root).as_posix())
+        info = (WatermarkInfo.from_image(row) if row else WatermarkInfo(
+            captured_at=datetime.fromtimestamp(path.stat().st_mtime, tz=dt_timezone.utc)))
+        values = {
+            'code': info.computer_code, 'case_number': info.case_number,
+            'username': info.username, 'at': info.when_text(),
+            'plate': info.plate_number, 'policy': info.policy_number,
+            'base_url': base_url,
+        }
+        try:
+            simple_watermark_file(path, values, cfg)
+            if row:
+                row.watermarked_at = timezone.now()
+                row.size_bytes = path.stat().st_size
+                row.save(update_fields=['watermarked_at', 'size_bytes'])
+            result['done'] += 1
+        except Exception:
+            logger.exception('Manual watermark failed: %s', path)
+            result['failed'] += 1
+    return result
 
 
 def run_simple_for_submission(submission, base_url: str | None = None) -> int:

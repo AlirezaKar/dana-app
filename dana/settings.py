@@ -168,7 +168,7 @@ STATIC_ROOT = _path('STATIC_ROOT', STATIC_SOURCES)
 #: static assets so browsers always fetch the new css/js/logos and never keep a
 #: cached copy (single source of truth; the templates no longer hardcode
 #: versions). `.env` → DANA_STATIC_VERSION.
-STATIC_VERSION = env.get('STATIC_VERSION', '1.23')
+STATIC_VERSION = env.get('STATIC_VERSION', '1.23.1')
 
 # v1.23 — the version the footer shows. `.env` → DANA_APP_VERSION; empty means
 # "same as DANA_STATIC_VERSION", so the single static knob still moves both.

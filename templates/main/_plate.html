@@ -18,7 +18,7 @@ DANA.composePlate() (browser) read back.
 ===========================================================================
 {% endcomment %}
 {% spaceless %}
-<div class="plate-wrapper" dir="ltr">
+<div class="plate-wrapper{% if readonly %} plate-wrapper-readonly{% endif %}" dir="ltr">
   <div class="plate{% if readonly %} plate-readonly{% endif %}"{% if plate_id %} id="{{ plate_id }}"{% endif %}>
     <div class="plate-blue">
       <div class="plate-flag"><span class="f-green"></span><span class="f-white"></span><span class="f-red"></span></div>

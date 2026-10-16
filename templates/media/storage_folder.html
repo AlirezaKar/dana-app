@@ -28,6 +28,12 @@
     <span class="badge">آخرین تغییر: <b>{{ summary.modified }}</b></span>
     {% if parent_url %}<a class="badge badge-link" href="{{ parent_url }}" title="پوشهٔ بالاتر">پوشهٔ بالاتر</a>{% endif %}
     <a class="badge badge-link badge-back" href="{{ index_url }}" title="فهرست پرونده‌ها">فهرست پرونده‌ها</a>
+    {% if can_stamp %}
+    <form method="post" action="{% url 'storage_watermark' subpath %}" id="manual-watermark-form">
+      {% csrf_token %}
+      <button class="badge badge-link" type="submit" name="confirm" value="stamp">manual watermark stamp</button>
+    </form>
+    {% endif %}
   </div>
 
   <h3 class="section-title">پوشه‌های داخلی</h3>
@@ -88,4 +94,26 @@
   <div class="empty-state">این پوشه فایلی ندارد.</div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById('manual-watermark-form');
+  if (!form) return;
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    var button = form.querySelector('button');
+    if (button.disabled) return;
+    button.disabled = true;
+    var accepted = await DANA.confirmUpload('تصاویر این پوشه و زیرپوشه‌ها بازنویسی می‌شوند. اجرای دوباره، مهر را روی مهر قبلی درج می‌کند. ابتدا نسخهٔ پشتیبان تهیه کنید. ادامه می‌دهید؟');
+    if (!accepted) { button.disabled = false; return; }
+    var confirmed = document.createElement('input');
+    confirmed.type = 'hidden'; confirmed.name = 'confirm'; confirmed.value = 'stamp';
+    form.appendChild(confirmed);
+    button.textContent = 'در حال درج واترمارک...';
+    form.submit();
+  });
+})();
+</script>
 {% endblock %}

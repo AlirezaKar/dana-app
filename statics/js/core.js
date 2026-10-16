@@ -113,6 +113,31 @@
     return hide;
   };
 
+  /* Explicit, viewport-centered confirmation; Escape always cancels. */
+  DANA.confirmUpload = function (message) {
+    return new Promise(function (resolve) {
+      var previous = document.activeElement;
+      var dialog = document.createElement('dialog');
+      dialog.className = 'popup-box upload-confirm-dialog';
+      dialog.setAttribute('aria-labelledby', 'upload-confirm-title');
+      dialog.setAttribute('aria-describedby', 'upload-confirm-message');
+      dialog.innerHTML = '<h2 class="popup-title" id="upload-confirm-title">تأیید نهایی</h2>' +
+        '<p class="popup-sub" id="upload-confirm-message"></p>' +
+        '<form method="dialog" class="upload-confirm-actions">' +
+        '<button class="btn btn-secondary" value="cancel" autofocus>انصراف</button>' +
+        '<button class="btn btn-primary" value="confirm">تأیید و ادامه</button></form>';
+      dialog.querySelector('.popup-sub').textContent = message;
+      dialog.addEventListener('close', function () {
+        var accepted = dialog.returnValue === 'confirm';
+        dialog.remove();
+        if (previous && previous.isConnected) previous.focus();
+        resolve(accepted);
+      }, { once: true });
+      document.body.appendChild(dialog);
+      dialog.showModal();
+    });
+  };
+
   /* ---------- Lightbox ---------- */
   (function () {
     function openLightbox(src) {

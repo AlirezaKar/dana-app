@@ -13,7 +13,7 @@ every name is printed next to it.
 
 Rules
 -----
-* **read-only** — the browser never creates, moves or deletes anything;
+* Browsing is read-only; the explicit POST watermark action overwrites images;
 * every requested path is resolved and clamped to ``STORAGE_ROOT``; a path that
   escapes the root (``..``) or does not exist is a 404;
 * access needs the app session (the same login as the wizard) or a staff account;
@@ -24,9 +24,11 @@ from datetime import timezone as dt_timezone
 from functools import wraps
 from pathlib import Path
 
+from django.contrib import messages
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
 from django.utils import timezone as dj_timezone
+from django.views.decorators.http import require_POST
 
 from app_core.utils.digits import to_fa
 from app_core.utils.jalali import gregorian_to_jalali_str
@@ -364,6 +366,7 @@ def storage_folder(request, subpath=''):
                    if _owned_case_folder(folder / f['name'], username)]
     total_size = sum(f.stat().st_size for f in _walk_files(folder))
     return render(request, 'media/storage_folder.html', {
+        'can_stamp': _can_stamp(request, folder),
         'folder_name': folder.name or 'storage',
         'folder_label': _label_for(folder.name),
         'abs_path': str(folder),
@@ -398,3 +401,34 @@ def storage_raw(request, subpath=''):
     resp = FileResponse(open(path, 'rb'), content_type=ctype)
     resp['Content-Disposition'] = f'inline; filename="{path.name}"'
     return resp
+
+
+def _can_stamp(request, folder):
+    # App users may mutate only their own case tree, never a shared ancestor.
+    if not _session_username(request):
+        return _allowed(request)
+    case, _ = _case_folder_of(folder)
+    return case is not None and _owned_case_folder(case, _session_username(request))
+
+
+@_access_required
+@require_POST
+def storage_watermark(request, subpath=''):
+    """Manual-only, CSRF-protected folder stamp with post/redirect/get."""
+    folder = _resolve(subpath)
+    _require_owned(request, folder)
+    if not folder.is_dir() or not _can_stamp(request, folder):
+        raise Http404('not an owned case folder')
+    if request.POST.get('confirm') != 'stamp':
+        messages.error(request, 'برای بازنویسی تصاویر ابتدا تأیید کنید.')
+        return redirect('storage_folder', subpath=subpath)
+    from .services.watermark import run_manual_for_folder
+
+    result = run_manual_for_folder(
+        folder, authorize=lambda path: _require_owned(request, path),
+        base_url=request.build_absolute_uri('/'))
+    text = (f"واترمارک دستی: {to_fa(result['done'])} تصویر ذخیره شد؛ "
+            f"{to_fa(result['skipped'])} فایل رد شد؛ "
+            f"{to_fa(result['failed'])} خطا.")
+    (messages.warning if result['failed'] else messages.success)(request, text)
+    return redirect('storage_folder', subpath=subpath)
