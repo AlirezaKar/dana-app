@@ -1473,10 +1473,20 @@ input.field-locked {
 }
 .locked-note-mini { margin-top: auto; padding-top: 8px; text-align: center; }
 
-/* the victim's plate widget sits centered in its row (v1.17) */
-#victim-form .plate-wrapper {
-  display: flex; justify-content: center; margin-top: 4px;
+/* Keep the add-victim grid inside its card even when the editable plate's
+   intrinsic width is wider than the available phone space. */
+#victim-form .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#victim-form .form-group { min-width: 0; }
+@media (max-width: 560px) {
+  #victim-form .form-grid { grid-template-columns: minmax(0, 1fr); }
 }
+/* Center when it fits; otherwise scroll only the plate, not the form/page.
+   Preserve input sizes so digits and the letter selector remain usable. */
+#victim-form .plate-wrapper {
+  display: flex; justify-content: flex-start; margin-top: 4px;
+  min-width: 0; max-width: 100%; overflow-x: auto; padding: 2px 0 6px;
+}
+#victim-form .plate { flex: none; margin-inline: auto; }
 
 /* Native <dialog> top layer keeps upload confirmations centered in the viewport. */
 .upload-confirm-dialog {
